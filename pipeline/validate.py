@@ -236,6 +236,7 @@ def check_ranking_snapshot(
     ranking = latest["iso3"].tolist()
     if not snapshot_path.exists():
         if update:
+            snapshot_path.parent.mkdir(parents=True, exist_ok=True)
             snapshot_path.write_text(json.dumps(ranking, indent=2))
             return []
         return [ValidationIssue(
@@ -247,6 +248,7 @@ def check_ranking_snapshot(
     expected = json.loads(snapshot_path.read_text())
     if ranking != expected:
         if update:
+            snapshot_path.parent.mkdir(parents=True, exist_ok=True)
             snapshot_path.write_text(json.dumps(ranking, indent=2))
             return []
         diffs = [
