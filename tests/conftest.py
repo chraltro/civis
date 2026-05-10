@@ -70,16 +70,14 @@ SYNTH_PROFILES: dict[str, tuple[float, float, float, set[str], set[str]]] = {
     # Wellbeing
     "life_eval":       (6.8, 7.8, 5.4, {"FIN", "DNK", "ISL", "SWE", "ISR"}, {"HKG", "KOR"}),
     "adolescent_fert": (5, 1.2, 14, {"KOR", "CHE", "DNK", "JPN", "NLD"}, {"USA", "GBR"}),
-    # New indicators
+    # Phase 2 additions
     "broadband":       (35, 50, 18, {"CHE", "FRA", "DNK", "KOR", "NLD"}, {"ITA", "POL", "LTU"}),
     "child_mort":      (3.5, 1.8, 7.0, {"SVN", "FIN", "NOR", "JPN", "ISL"}, {"USA", "POL", "ISR"}),
-    "healthy_life_exp":(72, 75, 67, {"JPN", "CHE", "ESP", "ITA", "ISL"}, {"USA", "POL", "LTU"}),
     "research_dev":    (2.5, 4.5, 1.0, {"ISR", "KOR", "USA", "SWE", "JPN"}, {"GRC", "POL", "PRT"}),
     "road_deaths":     (5, 2, 12, {"NOR", "SWE", "CHE", "GBR", "DNK"}, {"USA", "POL", "ITA"}),
     "top_10_income":   (38, 28, 50, {"SVN", "FIN", "DNK", "NLD", "NOR"}, {"USA", "GBR"}),
     "civil_liberties": (0.85, 0.95, 0.5, {"NOR", "DNK", "SWE", "NZL", "FIN"}, {"HKG", "POL", "SGP"}),
     "protected_areas": (15, 35, 5, {"SVN", "DEU", "POL", "GRC", "ESP"}, {"GBR", "USA", "NLD"}),
-    "positive_affect": (0.75, 0.85, 0.6, {"ISL", "NZL", "DNK", "NLD", "AUS"}, {"GRC", "KOR", "JPN"}),
 }
 
 

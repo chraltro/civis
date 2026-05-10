@@ -143,19 +143,6 @@ INDICATORS: tuple[Indicator, ...] = (
         sources=(Source("wb", "SH.DYN.MORT"),),
         precision=1,
     ),
-    Indicator(
-        key="healthy_life_exp",
-        label="Healthy life expectancy",
-        domain="Health",
-        direction="up",
-        sources=(
-            Source("owid", "healthy-life-expectancy",
-                   column=("healthy_life_expectancy", "hale", "hale_who")),
-            Source("owid", "healthy-life-expectancy-ihme",
-                   column=("healthy_life_expectancy", "hale_ihme")),
-        ),
-        precision=1, suffix=" yrs",
-    ),
 
     # ------------------ Knowledge ------------------
     Indicator(
@@ -264,20 +251,7 @@ INDICATORS: tuple[Indicator, ...] = (
         label="Top 10% income share",
         domain="Equality",
         direction="down",
-        sources=(
-            Source(
-                "owid",
-                "share-of-pre-tax-national-income-top-10",
-                column=("p90p100_share_pretax_income",
-                        "top_10_share_pretax",
-                        "income_share_top_10"),
-            ),
-            Source(
-                "owid",
-                "top-10-income-share",
-                column=("top_10_share", "p90p100"),
-            ),
-        ),
+        sources=(Source("wb", "SI.DST.10TH.10"),),
         precision=1, suffix="%",
     ),
 
@@ -346,19 +320,18 @@ INDICATORS: tuple[Indicator, ...] = (
     ),
     Indicator(
         key="civil_liberties",
-        label="Civil liberties (V-Dem)",
+        label="Human rights (V-Dem)",
         domain="Freedom",
         direction="up",
         sources=(
+            # OWID redirected `civil-liberties-index-vdem` -> this slug; using
+            # the destination directly so we don't depend on the redirect.
+            # V-Dem's human-rights index is the consolidated civil-liberties
+            # measure (freedom of expression, association, person, due process).
             Source(
                 "owid",
-                "civil-liberties-index-vdem",
-                column=("civil_liberties_index", "ci_score", "v2x_civlib"),
-            ),
-            Source(
-                "owid",
-                "civil-liberties-vdem",
-                column=("civil_liberties_index",),
+                "human-rights-index-vdem",
+                column=("human_rights_index", "v2x_civlib", "civil_liberties_index"),
             ),
         ),
         precision=2,
@@ -473,25 +446,6 @@ INDICATORS: tuple[Indicator, ...] = (
         ),
         precision=1, suffix=" / 1k",
     ),
-    Indicator(
-        key="positive_affect",
-        label="Positive affect (Gallup)",
-        domain="Wellbeing",
-        direction="up",
-        sources=(
-            Source(
-                "owid",
-                "self-reported-positive-affect-experienced",
-                column=("positive_affect", "positive_emotions", "happiness_positive_affect"),
-            ),
-            Source(
-                "owid",
-                "happiness-positive-affect",
-                column=("positive_affect",),
-            ),
-        ),
-        precision=2,
-    ),
 )
 
 
@@ -529,14 +483,12 @@ DIRECTION_PANELS: dict[str, frozenset[str]] = {
     "renewable":        frozenset({"ISL", "NOR", "NZL", "SWE", "DNK", "AUT", "FIN", "PRT"}),
     "life_eval":        frozenset({"FIN", "DNK", "ISL", "SWE", "ISR", "NLD", "NOR", "CHE"}),
     "adolescent_fert":  frozenset({"KOR", "CHE", "DNK", "JPN", "NLD", "ITA", "NOR", "SGP", "SWE"}),
-    # New indicators
+    # Phase 2 additions
     "broadband":        frozenset({"CHE", "FRA", "DNK", "KOR", "NLD", "NOR", "DEU", "ISL"}),
     "child_mort":       frozenset({"SVN", "FIN", "NOR", "JPN", "ISL", "EST", "SWE", "SGP"}),
-    "healthy_life_exp": frozenset({"JPN", "CHE", "ESP", "ITA", "ISL", "AUS", "NOR", "FRA"}),
     "research_dev":     frozenset({"ISR", "KOR", "USA", "SWE", "JPN", "CHE", "BEL", "DEU"}),
     "road_deaths":      frozenset({"NOR", "SWE", "CHE", "GBR", "DNK", "DEU", "NLD", "ISL"}),
     "top_10_income":    frozenset({"SVN", "FIN", "DNK", "NLD", "NOR", "BEL", "SWE", "CZE"}),
     "civil_liberties":  frozenset({"NOR", "DNK", "SWE", "NZL", "FIN", "CHE", "NLD", "DEU"}),
     "protected_areas":  frozenset({"SVN", "DEU", "POL", "GRC", "ESP", "FRA", "GBR", "ITA"}),
-    "positive_affect":  frozenset({"ISL", "NZL", "DNK", "NLD", "AUS", "CHE", "SWE", "NOR"}),
 }
