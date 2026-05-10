@@ -1,0 +1,90 @@
+name: refresh
+
+# Weekly cron: fetch, process, validate. On success, commit the new processed
+# files plus a dated snapshot, then trigger the deploy. On failure, open an
+# issue with the validation output and don't deploy.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # Mondays 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      update_snapshot:
+        description: "Accept any ranking change (update the fixture snapshot)"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --all-extras
+
+      - name: Fetch
+        run: uv run civis fetch
+
+      - name: Process
+        run: uv run civis process --snapshot
+
+      - name: Validate
+        id: validate
+        run: |
+          if [ "${{ github.event.inputs.update_snapshot }}" = "true" ]; then
+            uv run civis validate --update-snapshot 2>&1 | tee validate.log
+          else
+            uv run civis validate 2>&1 | tee validate.log
+          fi
+        continue-on-error: true
+
+      - name: Open issue on validation failure
+        if: steps.validate.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.existsSync('validate.log')
+              ? fs.readFileSync('validate.log', 'utf8').slice(-4000)
+              : '(no log captured)';
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Refresh validation failed (${new Date().toISOString().slice(0,10)})`,
+              labels: ['data-refresh', 'needs-triage'],
+              body: [
+                'The weekly data refresh ran into validation failures.',
+                'No new data has been deployed; the existing data file is unchanged.',
+                '',
+                '```',
+                log,
+                '```',
+              ].join('\n'),
+            });
+
+      - name: Fail if validation failed
+        if: steps.validate.outcome == 'failure'
+        run: exit 1
+
+      - name: Commit refreshed data
+        run: |
+          git config user.name "civis-bot"
+          git config user.email "civis-bot@users.noreply.github.com"
+          git add data/processed data/snapshots tests/fixtures/ranking_snapshot.json
+          if git diff --cached --quiet; then
+            echo "No data changes."
+          else
+            git commit -m "data: weekly refresh $(date -u +%Y-%m-%d)"
+            git push
+          fi

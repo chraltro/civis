@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Civis Index — Where do people actually live the best lives?</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="description" content="A hierarchical index of wellbeing across 29 advanced economies, 1990–present. 9 domains, 24 indicators, equally weighted by default — adjust to your values." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="topbar">
+        <span>Civis Index · v1 · A response to the BCW</span>
+        <span id="data-stamp"></span>
+      </div>
+
+      <h1>
+        Where do people <em>actually</em> live the best lives?
+      </h1>
+      <p class="deck">
+        29 advanced economies, <strong>9 domains</strong>, 24 indicators, 1990–present. A revision of
+        the BCW Index that gives equal weight to material conditions, health, knowledge, safety,
+        equality, freedom, work-life, environment, and subjective wellbeing, instead of letting
+        outcome-quantity drown out outcome-quality.
+      </p>
+      <button class="method-link" id="method-toggle">▸ How this differs from the BCW Index</button>
+
+      <div class="method-detail" id="method-detail">
+        <p>
+          The original BCW takes 12 indicators, z-scores each, and reports the median per country.
+          Six of those 12 measure something close to "rich, developed country" (GDP, household
+          consumption, broadband, internet, infant mortality, maternal mortality), so the index
+          rewards wealth six times. It has no measure of inequality, no measure of political
+          freedom, no measure of work-life balance, and no measure of environmental sustainability.
+          The result: Hong Kong ranked second.
+        </p>
+        <p>
+          The Civis Index takes <strong>24 indicators across 9 equally-weighted domains</strong>,
+          and aggregates them hierarchically: indicator z-scores → mean within domain → mean across
+          domains. Correlated indicators within a domain don't double-count, and missing a domain
+          hurts you proportionally to one ninth of the score, not one twelfth of the variable list.
+        </p>
+        <ul class="domains-list" id="domains-list"></ul>
+        <p style="margin-top: 14px">
+          Z-scores are winsorized at ±2.5σ to prevent extreme outliers from dominating. Equal
+          weights are a starting point, not a claim of objectivity. Adjust the domain weights below
+          to see how the ranking shifts under your values.
+        </p>
+      </div>
+
+      <div class="controls">
+        <span class="label">Highlight</span>
+        <div class="picker">
+          <span class="swatch a"></span>
+          <label for="sel-a">A</label>
+          <select id="sel-a"></select>
+        </div>
+        <div class="picker">
+          <span class="swatch b"></span>
+          <label for="sel-b">B</label>
+          <select id="sel-b"></select>
+        </div>
+        <button class="ghost-btn" id="swap">⇄ swap</button>
+        <span class="weights-toggle" id="weights-toggle"
+          ><span class="chev">▸</span> Adjust weights</span
+        >
+      </div>
+
+      <div class="weights-panel" id="weights-panel">
+        <div class="weights-grid" id="weights-grid"></div>
+        <div class="weights-actions">
+          <button class="ghost-btn" id="weights-reset">Reset to equal</button>
+          <span class="weights-note">Sliders normalize to sum to 1.</span>
+        </div>
+      </div>
+
+      <div id="empty-state" class="empty-state" hidden>
+        <p>
+          No <code>civis.json</code> found. Run the data pipeline first
+          (<code>civis fetch &amp;&amp; civis process</code>), or wait for the
+          weekly refresh workflow to populate the data file.
+        </p>
+      </div>
+
+      <div id="dashboard" hidden>
+        <div class="top-grid">
+          <div>
+            <div class="panel-title">Latest year</div>
+            <div class="panel-sub">Country score = unweighted mean of nine domain z-scores</div>
+            <svg id="bar" class="chart" viewBox="0 0 720 640" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+          <div>
+            <div class="panel-title">Time series 1990–present</div>
+            <div class="panel-sub">Selected economies' relative position over time</div>
+            <svg id="ts" class="chart" viewBox="0 0 1320 640" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+        </div>
+
+        <div class="section-rule">
+          Domain shape · how the two highlights compare across all nine domains
+        </div>
+        <div class="radar-host">
+          <div class="radar-card">
+            <div class="title">
+              <h3 id="radar-title">A vs B</h3>
+              <div class="scores">
+                <span class="a" id="radar-score-a"></span>
+                <span class="b" id="radar-score-b"></span>
+              </div>
+            </div>
+            <svg id="radar" class="chart" viewBox="0 0 720 540" preserveAspectRatio="xMidYMid meet"></svg>
+            <p class="panel-sub" style="margin-top: 8px">
+              Each axis is a domain z-mean (panel-relative). The dashed grey line is the panel
+              median. Outside it, above-average. Inside, below.
+            </p>
+          </div>
+        </div>
+
+        <div class="section-rule">Domain decomposition · trajectory of each domain since 1990</div>
+        <p class="panel-sub" style="margin-top: -12px; margin-bottom: 18px">
+          Each panel: domain z-mean over time;
+          <span id="legend-a">sage = highlight A</span>;
+          <span id="legend-b">orange = highlight B</span>;
+          grey = 27 other peers
+        </p>
+        <div class="panel-grid" id="panels"></div>
+      </div>
+
+      <div class="footer">
+        <div class="footnote" id="country-list-footnote"></div>
+        <div class="source" id="sources-footer">
+          Sources: World Bank WDI · OWID Cantril Ladder · V-Dem · RSF · Transparency International ·
+          UNDP · OECD
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
