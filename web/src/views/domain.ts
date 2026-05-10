@@ -91,6 +91,9 @@ export function renderDomain(host: HTMLElement, data: CivisData, domain: string)
     const aSeries = zSeries[state.hlA] ?? [];
     const bSeries = zSeries[state.hlB] ?? [];
 
+    const fmtTip = (label: string) => (i: number, v: number) =>
+      `<span class="tt-yr">${data.years[i]}</span> · ${label} · z=${v >= 0 ? "+" : ""}${v.toFixed(2)}`;
+
     row.innerHTML = `
       <div class="ind-head">
         <span class="ind-label">${ind.label}</span>
@@ -99,8 +102,8 @@ export function renderDomain(host: HTMLElement, data: CivisData, domain: string)
       <div class="ind-rows"></div>
     `;
     const indRowsHost = row.querySelector<HTMLDivElement>(".ind-rows")!;
-    indRowsHost.appendChild(makeIndRow(nameOf[state.hlA], aR, aZ, aSeries, "sage", SAGE, total));
-    indRowsHost.appendChild(makeIndRow(nameOf[state.hlB], bR, bZ, bSeries, "amber", AMBER, total));
+    indRowsHost.appendChild(makeIndRow(nameOf[state.hlA], aR, aZ, aSeries, "sage", SAGE, total, fmtTip(nameOf[state.hlA])));
+    indRowsHost.appendChild(makeIndRow(nameOf[state.hlB], bR, bZ, bSeries, "amber", AMBER, total, fmtTip(nameOf[state.hlB])));
 
     rowsHost.appendChild(row);
   }
@@ -114,10 +117,11 @@ function makeIndRow(
   cls: "sage" | "amber",
   color: string,
   total: number,
+  formatTooltip: (i: number, v: number) => string,
 ): HTMLElement {
   const row = document.createElement("div");
   row.className = `ind-row ${cls}`;
-  const spark = sparkline({ values: series, color });
+  const spark = sparkline({ values: series, color, formatTooltip });
   row.innerHTML = `
     <span class="ir-name">${name}</span>
     <span class="ir-rank">${rank ? ordinal(rank) : "—"} <span class="ir-of">of ${total}</span></span>

@@ -6,8 +6,9 @@ import * as d3 from "d3";
 import type { CivisData } from "../data";
 import type { CompositeContext } from "../state";
 import { state } from "../state";
+import { hideTooltip, showTooltip } from "./tooltip";
 
-const COL = { grid: "#2a3a32" };
+const COL = { grid: "#2a3a32", sage: "#94b09e", amber: "#d2965a" };
 
 function isMobile(): boolean {
   return window.innerWidth < 600;
@@ -133,4 +134,91 @@ export function drawTimeSeries(data: CivisData, ctx: CompositeContext): void {
       .attr("font-size", mobile ? 11 : 9.5)
       .text(`${nameOf[iso]}  ${v >= 0 ? "+" : ""}${v.toFixed(2)}`);
   }
+
+  // Hover crosshair + tooltip showing year and both highlight values.
+  const overlay = g.append("g").attr("class", "ts-overlay").style("display", "none");
+  const cursor = overlay
+    .append("line")
+    .attr("class", "ts-cursor")
+    .attr("y1", 0)
+    .attr("y2", innerH)
+    .attr("stroke", "rgba(216,220,205,0.5)")
+    .attr("stroke-width", 0.6);
+  const dotA = overlay
+    .append("circle")
+    .attr("r", 3.4)
+    .attr("fill", COL.sage)
+    .attr("stroke", "var(--bg)")
+    .attr("stroke-width", 1);
+  const dotB = overlay
+    .append("circle")
+    .attr("r", 3.4)
+    .attr("fill", COL.amber)
+    .attr("stroke", "var(--bg)")
+    .attr("stroke-width", 1);
+
+  const hit = g
+    .append("rect")
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr("width", innerW)
+    .attr("height", innerH)
+    .attr("fill", "transparent")
+    .style("cursor", "crosshair");
+
+  let hideTimer: number | null = null;
+
+  const handleAt = (clientX: number, clientY: number): void => {
+    const node = (svg.node() as SVGSVGElement) ?? null;
+    if (!node) return;
+    const rect = node.getBoundingClientRect();
+    const ratio = (clientX - rect.left) / rect.width;
+    const yearSpan = data.years.length - 1;
+    const fracInChart = (ratio * W - margin.left) / innerW;
+    const yearFrac = Math.max(0, Math.min(1, fracInChart));
+    const idx = Math.round(yearFrac * yearSpan);
+    const year = data.years[idx];
+    const va = ctx.composite[state.hlA]?.[idx] ?? null;
+    const vb = ctx.composite[state.hlB]?.[idx] ?? null;
+    overlay.style("display", null);
+    cursor.attr("x1", x(year)).attr("x2", x(year));
+    if (va != null) dotA.attr("cx", x(year)).attr("cy", y(va)).style("display", null);
+    else dotA.style("display", "none");
+    if (vb != null) dotB.attr("cx", x(year)).attr("cy", y(vb)).style("display", null);
+    else dotB.style("display", "none");
+
+    const fmt = (v: number | null) => (v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}`);
+    showTooltip(
+      `<div class="tt-yr">${year}</div>` +
+        `<div><span class="tt-dot sage"></span>${nameOf[state.hlA]}<span class="tt-v">${fmt(va)}</span></div>` +
+        `<div><span class="tt-dot amber"></span>${nameOf[state.hlB]}<span class="tt-v">${fmt(vb)}</span></div>`,
+      clientX,
+      clientY,
+    );
+  };
+
+  const hide = (): void => {
+    overlay.style("display", "none");
+    hideTooltip();
+  };
+
+  hit.on("mousemove", (e) => {
+    if (hideTimer) { window.clearTimeout(hideTimer); hideTimer = null; }
+    handleAt(e.clientX, e.clientY);
+  });
+  hit.on("mouseleave", hide);
+  hit.on("touchstart", (e) => {
+    if (e.touches.length === 0) return;
+    e.preventDefault();
+    handleAt(e.touches[0].clientX, e.touches[0].clientY);
+  });
+  hit.on("touchmove", (e) => {
+    if (e.touches.length === 0) return;
+    e.preventDefault();
+    handleAt(e.touches[0].clientX, e.touches[0].clientY);
+  });
+  hit.on("touchend", () => {
+    if (hideTimer) window.clearTimeout(hideTimer);
+    hideTimer = window.setTimeout(hide, 1500);
+  });
 }

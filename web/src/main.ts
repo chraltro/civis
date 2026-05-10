@@ -30,14 +30,32 @@ async function bootstrap(): Promise<void> {
   if (stamp) stamp.textContent = `data ${data.generated_at.slice(0, 10)}`;
 
   const content = document.getElementById("content")!;
+  let prevTab = state.tab;
 
   const render = (): void => {
     syncHeaderFromState();
     syncTabsActive(tabsHost);
-    if (state.tab === "overview" || !data.domains.includes(state.tab)) {
-      renderOverview(content, data);
+    const tabChanged = prevTab !== state.tab;
+    prevTab = state.tab;
+
+    const doRender = () => {
+      if (state.tab === "overview" || !data.domains.includes(state.tab)) {
+        renderOverview(content, data);
+      } else {
+        renderDomain(content, data, state.tab);
+      }
+      content.classList.remove("swapping");
+    };
+
+    if (tabChanged) {
+      // Brief fade for the swap; also reset scroll so each tab opens at top.
+      content.classList.add("swapping");
+      window.setTimeout(() => {
+        doRender();
+        window.scrollTo({ top: 0, behavior: "auto" });
+      }, 90);
     } else {
-      renderDomain(content, data, state.tab);
+      doRender();
     }
   };
 
