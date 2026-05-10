@@ -1,8 +1,3 @@
-/**
- * Domain weight sliders. Stored unnormalized (0..3); normalize-to-sum-1 happens
- * at compute time.
- */
-
 import { resetWeights, setWeight, state } from "../state";
 
 export function buildWeightSliders(domains: string[]): void {
@@ -35,9 +30,5 @@ export function buildWeightSliders(domains: string[]): void {
       const valSpan = grid.querySelector<HTMLElement>(`[data-val="${input.dataset.domain}"]`);
       if (valSpan) valSpan.textContent = "1.0";
     });
-  });
-  document.getElementById("weights-toggle")?.addEventListener("click", (e) => {
-    document.getElementById("weights-panel")?.classList.toggle("open");
-    (e.currentTarget as HTMLElement).classList.toggle("open");
   });
 }

@@ -1,15 +1,22 @@
 /**
  * Civis client state.
  *
- * Two highlights (A in sage, B in amber) and nine domain weights. Subscribers
- * register a callback that fires whenever any of these change. No framework.
+ * Three things change at runtime:
+ *   - which tab is showing (overview | one of the 9 domains)
+ *   - the two highlighted countries (A in sage, B in amber)
+ *   - the per-domain weights (default 1.0 each, normalized at compute time)
+ *
+ * Subscribers receive a single callback when any of these change. No framework.
  */
 
 import type { CivisData } from "./data";
 
+export type Tab = "overview" | string; // 'overview' or a domain name
+
 export type Listener = () => void;
 
 export interface State {
+  tab: Tab;
   hlA: string;
   hlB: string;
   weights: Record<string, number>;
@@ -18,13 +25,20 @@ export interface State {
 const listeners = new Set<Listener>();
 
 export const state: State = {
-  hlA: "DNK",
+  tab: "overview",
+  hlA: "NOR",
   hlB: "USA",
   weights: {},
 };
 
 export function initWeights(domains: string[]): void {
   for (const d of domains) state.weights[d] = 1.0;
+}
+
+export function setTab(tab: Tab): void {
+  if (state.tab === tab) return;
+  state.tab = tab;
+  emit();
 }
 
 export function setHighlight(slot: "A" | "B", iso: string): void {
@@ -72,7 +86,6 @@ export interface CompositeContext {
   ranked: string[];
 }
 
-/** Recompute composite scores for the current weights. */
 export function computeComposite(data: CivisData): CompositeContext {
   const weights = normalizedWeights(data.domains);
   const composite: Record<string, (number | null)[]> = {};
@@ -109,5 +122,32 @@ function normalizedWeights(domains: string[]): Record<string, number> {
   const total = domains.reduce((s, d) => s + (state.weights[d] ?? 1), 0) || 1;
   const out: Record<string, number> = {};
   for (const d of domains) out[d] = (state.weights[d] ?? 1) / total;
+  return out;
+}
+
+// ----------------------------------------------------------------
+// Per-domain / per-indicator helpers — used by domain views.
+// ----------------------------------------------------------------
+
+/** Latest year value at index. */
+export function latestZ(
+  series: Record<string, (number | null)[]> | undefined,
+  iso: string,
+  yi: number,
+): number | null {
+  return series?.[iso]?.[yi] ?? null;
+}
+
+/** Rank an iso among all countries on a numeric value (descending = best first). */
+export function rankBy(
+  data: CivisData,
+  valueOf: (iso: string) => number | null,
+): Map<string, number> {
+  const pairs = data.countries
+    .map((c) => ({ iso: c.iso, v: valueOf(c.iso) }))
+    .filter((p): p is { iso: string; v: number } => p.v != null)
+    .sort((a, b) => b.v - a.v);
+  const out = new Map<string, number>();
+  pairs.forEach((p, i) => out.set(p.iso, i + 1));
   return out;
 }

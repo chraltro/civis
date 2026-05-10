@@ -92,6 +92,13 @@ INDICATORS: tuple[Indicator, ...] = (
         direction="up",
         sources=(Source("wb", "SH.XPD.CHEX.PC.CD"),),
     ),
+    Indicator(
+        key="broadband",
+        label="Fixed broadband subs (per 100)",
+        domain="Material",
+        direction="up",
+        sources=(Source("wb", "IT.NET.BBND.P2"),),
+    ),
 
     # ------------------ Health ------------------
     Indicator(
@@ -114,6 +121,25 @@ INDICATORS: tuple[Indicator, ...] = (
         domain="Health",
         direction="down",
         sources=(Source("wb", "SH.STA.MMRT"),),
+    ),
+    Indicator(
+        key="child_mort",
+        label="Under-5 mortality (per 1k)",
+        domain="Health",
+        direction="down",
+        sources=(Source("wb", "SH.DYN.MORT"),),
+    ),
+    Indicator(
+        key="healthy_life_exp",
+        label="Healthy life expectancy",
+        domain="Health",
+        direction="up",
+        sources=(
+            Source("owid", "healthy-life-expectancy",
+                   column=("healthy_life_expectancy", "hale", "hale_who")),
+            Source("owid", "healthy-life-expectancy-ihme",
+                   column=("healthy_life_expectancy", "hale_ihme")),
+        ),
     ),
 
     # ------------------ Knowledge ------------------
@@ -144,6 +170,13 @@ INDICATORS: tuple[Indicator, ...] = (
         direction="up",
         sources=(Source("wb", "IT.NET.USER.ZS"),),
     ),
+    Indicator(
+        key="research_dev",
+        label="R&D spending (% GDP)",
+        domain="Knowledge",
+        direction="up",
+        sources=(Source("wb", "GB.XPD.RSDV.GD.ZS"),),
+    ),
 
     # ------------------ Safety ------------------
     Indicator(
@@ -159,6 +192,13 @@ INDICATORS: tuple[Indicator, ...] = (
         domain="Safety",
         direction="down",
         sources=(Source("wb", "SH.STA.SUIC.P5"),),
+    ),
+    Indicator(
+        key="road_deaths",
+        label="Road traffic deaths (per 100k)",
+        domain="Safety",
+        direction="down",
+        sources=(Source("wb", "SH.STA.TRAF.P5"),),
     ),
 
     # ------------------ Equality ------------------
@@ -193,6 +233,26 @@ INDICATORS: tuple[Indicator, ...] = (
             "GDI close to 1.0 = most equal. Treated as monotonic 'up' here, which "
             "is approximately correct for our 29-country panel since most values "
             "are <= 1.0. Open issue: consider folding as 1 - |1 - GDI|."
+        ),
+    ),
+    Indicator(
+        key="top_10_income",
+        label="Top 10% income share",
+        domain="Equality",
+        direction="down",
+        sources=(
+            Source(
+                "owid",
+                "share-of-pre-tax-national-income-top-10",
+                column=("p90p100_share_pretax_income",
+                        "top_10_share_pretax",
+                        "income_share_top_10"),
+            ),
+            Source(
+                "owid",
+                "top-10-income-share",
+                column=("top_10_share", "p90p100"),
+            ),
         ),
     ),
 
@@ -253,6 +313,24 @@ INDICATORS: tuple[Indicator, ...] = (
                 "owid",
                 "corruption-perception-index",
                 column=("corruption_perception_index", "cpi_score"),
+            ),
+        ),
+    ),
+    Indicator(
+        key="civil_liberties",
+        label="Civil liberties (V-Dem)",
+        domain="Freedom",
+        direction="up",
+        sources=(
+            Source(
+                "owid",
+                "civil-liberties-index-vdem",
+                column=("civil_liberties_index", "ci_score", "v2x_civlib"),
+            ),
+            Source(
+                "owid",
+                "civil-liberties-vdem",
+                column=("civil_liberties_index",),
             ),
         ),
     ),
@@ -320,6 +398,13 @@ INDICATORS: tuple[Indicator, ...] = (
             ),
         ),
     ),
+    Indicator(
+        key="protected_areas",
+        label="Terrestrial protected areas (% land)",
+        domain="Environment",
+        direction="up",
+        sources=(Source("wb", "ER.LND.PTLD.ZS"),),
+    ),
 
     # ------------------ Wellbeing ------------------
     Indicator(
@@ -348,6 +433,24 @@ INDICATORS: tuple[Indicator, ...] = (
         notes=(
             "Placed in Wellbeing as a proxy for life-trajectory autonomy. "
             "Defensible but contested. Could move to Health or Equality."
+        ),
+    ),
+    Indicator(
+        key="positive_affect",
+        label="Positive affect (Gallup)",
+        domain="Wellbeing",
+        direction="up",
+        sources=(
+            Source(
+                "owid",
+                "self-reported-positive-affect-experienced",
+                column=("positive_affect", "positive_emotions", "happiness_positive_affect"),
+            ),
+            Source(
+                "owid",
+                "happiness-positive-affect",
+                column=("positive_affect",),
+            ),
         ),
     ),
 )
@@ -387,4 +490,14 @@ DIRECTION_PANELS: dict[str, frozenset[str]] = {
     "renewable":        frozenset({"ISL", "NOR", "NZL", "SWE", "DNK", "AUT", "FIN", "PRT"}),
     "life_eval":        frozenset({"FIN", "DNK", "ISL", "SWE", "ISR", "NLD", "NOR", "CHE"}),
     "adolescent_fert":  frozenset({"KOR", "CHE", "DNK", "JPN", "NLD", "ITA", "NOR", "SGP", "SWE"}),
+    # New indicators
+    "broadband":        frozenset({"CHE", "FRA", "DNK", "KOR", "NLD", "NOR", "DEU", "ISL"}),
+    "child_mort":       frozenset({"SVN", "FIN", "NOR", "JPN", "ISL", "EST", "SWE", "SGP"}),
+    "healthy_life_exp": frozenset({"JPN", "CHE", "ESP", "ITA", "ISL", "AUS", "NOR", "FRA"}),
+    "research_dev":     frozenset({"ISR", "KOR", "USA", "SWE", "JPN", "CHE", "BEL", "DEU"}),
+    "road_deaths":      frozenset({"NOR", "SWE", "CHE", "GBR", "DNK", "DEU", "NLD", "ISL"}),
+    "top_10_income":    frozenset({"SVN", "FIN", "DNK", "NLD", "NOR", "BEL", "SWE", "CZE"}),
+    "civil_liberties":  frozenset({"NOR", "DNK", "SWE", "NZL", "FIN", "CHE", "NLD", "DEU"}),
+    "protected_areas":  frozenset({"SVN", "DEU", "POL", "GRC", "ESP", "FRA", "GBR", "ITA"}),
+    "positive_affect":  frozenset({"ISL", "NZL", "DNK", "NLD", "AUS", "CHE", "SWE", "NOR"}),
 }
