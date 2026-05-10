@@ -216,10 +216,24 @@ INDICATORS: tuple[Indicator, ...] = (
         domain="Freedom",
         direction="down",
         sources=(
+            # OWID has reorganized this dataset multiple times. Try the most
+            # recent slug first, fall back to historical names. The fetcher
+            # uses the first source that returns data; failures of fallbacks
+            # don't abort the run.
+            Source(
+                "owid",
+                "press-freedom-rsf",
+                column=("press_freedom_score", "rsf_press_freedom_index", "score"),
+            ),
+            Source(
+                "owid",
+                "rsf-press-freedom-index",
+                column=("press_freedom_score", "rsf_press_freedom_index", "score"),
+            ),
             Source(
                 "owid",
                 "press-freedom-index",
-                column=("press_freedom_score", "rsf_press_freedom_index"),
+                column=("press_freedom_score", "rsf_press_freedom_index", "score"),
             ),
         ),
         notes=(
