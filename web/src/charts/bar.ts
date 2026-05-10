@@ -7,6 +7,7 @@
 import * as d3 from "d3";
 import type { CivisData } from "../data";
 import { state } from "../state";
+import { hideTooltip, showTooltip } from "./tooltip";
 
 const COL = {
   inkFaint: "#6e7869",
@@ -87,6 +88,35 @@ export function drawBar(opts: BarOpts): void {
     return COL.sageSoft;
   };
 
+  // Wide transparent hover zone per row, behind the visible bar/labels.
+  g.selectAll("rect.row-hit")
+    .data(rows)
+    .join("rect")
+    .attr("class", "row-hit")
+    .attr("x", -margin.left + 4)
+    .attr("y", (d) => y(d.iso)! - y.step() * 0.16)
+    .attr("width", innerW + margin.left + margin.right - 8)
+    .attr("height", y.step() * 0.96)
+    .attr("fill", "transparent")
+    .style("cursor", "default")
+    .on("mouseenter", (e, d) => {
+      const rect = (e.currentTarget as SVGRectElement).getBoundingClientRect();
+      showTooltip(
+        `<div class="tt-yr">${d.name}</div><div class="tt-v">${fmt(d.v)}</div>`,
+        e.clientX,
+        rect.top,
+      );
+    })
+    .on("mousemove", (e, d) => {
+      const rect = (e.currentTarget as SVGRectElement).getBoundingClientRect();
+      showTooltip(
+        `<div class="tt-yr">${d.name}</div><div class="tt-v">${fmt(d.v)}</div>`,
+        e.clientX,
+        rect.top,
+      );
+    })
+    .on("mouseleave", () => hideTooltip());
+
   g.selectAll("rect.bar")
     .data(rows)
     .join("rect")
@@ -96,7 +126,8 @@ export function drawBar(opts: BarOpts): void {
     .attr("width", (d) => Math.max(0.5, Math.abs(x(d.v) - x(0))))
     .attr("height", y.bandwidth())
     .attr("fill", (d) => fill(d.iso))
-    .attr("opacity", (d) => (d.iso === state.hlA || d.iso === state.hlB ? 1 : 0.78));
+    .attr("opacity", (d) => (d.iso === state.hlA || d.iso === state.hlB ? 1 : 0.78))
+    .style("pointer-events", "none");
 
   g.selectAll("text.cl")
     .data(rows)

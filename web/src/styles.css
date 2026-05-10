@@ -351,11 +351,65 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
 }
 .footer .dot-sep { color: var(--rule); }
 
+/* ─── tooltip ────────────────────────────────────────────── */
+.tooltip {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+  background: rgba(24, 37, 32, 0.96);
+  border: 0.5px solid var(--rule);
+  color: var(--ink);
+  padding: 6px 10px;
+  border-radius: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  max-width: 240px;
+}
+.tooltip .tt-yr {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px; color: var(--amber); font-weight: 500;
+  letter-spacing: 0;
+}
+.tooltip .tt-v {
+  margin-left: 8px; color: var(--ink); font-weight: 500;
+}
+.tooltip > div { display: flex; align-items: center; }
+.tooltip > div > .tt-v { margin-left: auto; padding-left: 12px; }
+.tooltip .tt-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  margin-right: 6px;
+}
+.tooltip .tt-dot.sage { background: var(--sage); }
+.tooltip .tt-dot.amber { background: var(--amber); }
+
+/* ─── content swap fade ──────────────────────────────────── */
+#content {
+  transition: opacity 90ms ease;
+}
+#content.swapping { opacity: 0; }
+
+/* ─── focus rings ────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+  border-radius: 1px;
+}
+.tab:focus-visible {
+  outline-offset: -2px;
+}
+
 /* ─── svg internals ──────────────────────────────────────── */
 svg text {
   fill: var(--ink-dim);
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px; font-weight: 300;
+  pointer-events: none;
+  user-select: none;
 }
 .axis-label {
   fill: var(--ink-faint);
