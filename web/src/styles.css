@@ -287,21 +287,31 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
 .ind-rows { display: flex; flex-direction: column; gap: 4px; }
 .ind-row {
   display: grid;
-  grid-template-columns: 1fr 90px 110px 80px;
+  grid-template-columns: 140px minmax(70px, auto) 1fr minmax(70px, auto) auto;
   align-items: center;
-  gap: 12px;
-  padding: 4px 0;
+  column-gap: 14px;
+  row-gap: 6px;
+  padding: 5px 0;
 }
 @media (max-width: 700px) {
-  .ind-row { grid-template-columns: 1fr 70px 90px 70px; gap: 8px; }
-}
-@media (max-width: 480px) {
-  .ind-row { grid-template-columns: 1fr auto auto; gap: 8px 10px; }
-  .ind-row .ir-spark { grid-row: 2; grid-column: 1 / -1; justify-content: flex-start; }
+  .ind-row {
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas:
+      "name  value rank"
+      "spark spark spark"
+      "z     z     z";
+    column-gap: 10px;
+  }
+  .ind-row .ir-name  { grid-area: name; }
+  .ind-row .ir-value { grid-area: value; text-align: right; }
+  .ind-row .ir-rank  { grid-area: rank; }
+  .ind-row .ir-spark { grid-area: spark; }
+  .ind-row .ir-z     { grid-area: z; text-align: left; }
 }
 .ir-name {
   font-family: 'Newsreader', serif; font-size: 14px;
   color: var(--ink); display: flex; align-items: center; gap: 8px;
+  min-width: 0;
 }
 .ir-name::before {
   content: ""; width: 8px; height: 8px; border-radius: 50%;
@@ -309,16 +319,22 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
 }
 .ind-row.sage .ir-name::before { background: var(--sage); }
 .ind-row.amber .ir-name::before { background: var(--amber); }
+.ir-value {
+  font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+  color: var(--ink); white-space: nowrap;
+}
+.ind-row.sage .ir-value { color: var(--ink); }
+.ind-row.amber .ir-value { color: var(--amber); }
 .ir-rank {
-  font-family: 'JetBrains Mono', monospace; font-size: 12px;
-  color: var(--ink); text-align: right; white-space: nowrap;
+  font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+  color: var(--ink-dim); text-align: right; white-space: nowrap;
 }
 .ir-of { color: var(--ink-faint); }
 .ir-z {
-  font-family: 'JetBrains Mono', monospace; font-size: 11px;
-  color: var(--ink-dim); text-align: right; white-space: nowrap;
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  color: var(--ink-faint); text-align: right; white-space: nowrap;
 }
-.ir-spark { display: flex; justify-content: flex-end; min-width: 0; }
+.ir-spark { display: flex; align-items: center; min-width: 0; width: 100%; }
 .sparkline {
   display: block;
   width: 100%;
@@ -370,16 +386,27 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   max-width: 240px;
 }
+.tooltip > div {
+  display: flex; align-items: baseline; gap: 8px;
+  white-space: nowrap;
+}
 .tooltip .tt-yr {
+  display: block;
   font-family: 'Cormorant Garamond', serif;
   font-size: 13px; color: var(--amber); font-weight: 500;
   letter-spacing: 0;
+  margin-bottom: 1px;
 }
 .tooltip .tt-v {
-  margin-left: 8px; color: var(--ink); font-weight: 500;
+  color: var(--ink); font-weight: 500;
+  margin-left: auto; padding-left: 12px;
 }
-.tooltip > div { display: flex; align-items: center; }
-.tooltip > div > .tt-v { margin-left: auto; padding-left: 12px; }
+.tooltip .tt-z {
+  display: block;
+  color: var(--ink-faint);
+  font-size: 9.5px; letter-spacing: 0.08em;
+  margin-top: 1px;
+}
 .tooltip .tt-dot {
   display: inline-block; width: 7px; height: 7px; border-radius: 50%;
   margin-right: 6px;

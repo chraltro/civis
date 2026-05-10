@@ -4,12 +4,13 @@
  * Shows:
  *   - Domain ranking bar (all 29 countries on this domain's z-score)
  *   - Per-indicator block: each indicator's latest rank for A and B,
- *     z-score for A and B, plus a sparkline trajectory each.
+ *     formatted raw value (e.g. "97%"), z-score, and a sparkline trajectory
+ *     for both highlights. Hovering the sparkline shows year + raw value.
  */
 
 import { drawBar } from "../charts/bar";
 import { sparkline } from "../charts/sparkline";
-import type { CivisData } from "../data";
+import { formatRaw, type CivisData, type IndicatorMeta } from "../data";
 import { rankBy, state } from "../state";
 
 const SAGE = "#94b09e";
@@ -43,7 +44,6 @@ export function renderDomain(host: HTMLElement, data: CivisData, domain: string)
   const inds = data.indicators.filter((i) => i.domain === domain);
   const nameOf = Object.fromEntries(data.countries.map((c) => [c.iso, c.name]));
 
-  // Domain rank
   const domainRanks = rankBy(data, (iso) => data.domain_z[domain]?.[iso]?.[yi] ?? null);
   const aRank = domainRanks.get(state.hlA);
   const bRank = domainRanks.get(state.hlB);
@@ -80,19 +80,30 @@ export function renderDomain(host: HTMLElement, data: CivisData, domain: string)
     const row = document.createElement("div");
     row.className = "indicator-row";
 
-    // Compute rank within this indicator's z-scores
     const zSeries = data.z[ind.key] ?? {};
+    const rawSeries = data.raw?.[ind.key] ?? {};
     const indRanks = rankBy(data, (iso) => zSeries[iso]?.[yi] ?? null);
     const aR = indRanks.get(state.hlA);
     const bR = indRanks.get(state.hlB);
     const aZ = zSeries[state.hlA]?.[yi] ?? null;
     const bZ = zSeries[state.hlB]?.[yi] ?? null;
+    const aRaw = rawSeries[state.hlA]?.[yi] ?? null;
+    const bRaw = rawSeries[state.hlB]?.[yi] ?? null;
 
-    const aSeries = zSeries[state.hlA] ?? [];
-    const bSeries = zSeries[state.hlB] ?? [];
+    const aZSeries = zSeries[state.hlA] ?? [];
+    const bZSeries = zSeries[state.hlB] ?? [];
+    const aRawSeries = rawSeries[state.hlA] ?? [];
+    const bRawSeries = rawSeries[state.hlB] ?? [];
 
-    const fmtTip = (label: string) => (i: number, v: number) =>
-      `<span class="tt-yr">${data.years[i]}</span> · ${label} · z=${v >= 0 ? "+" : ""}${v.toFixed(2)}`;
+    const fmtTip = (label: string, rawArr: (number | null)[], zArr: (number | null)[]) =>
+      (i: number) => {
+        const yr = data.years[i];
+        const raw = rawArr[i];
+        const zv = zArr[i];
+        const valueDisplay = raw != null ? formatRaw(ind, raw) : "—";
+        const zDisplay = zv != null ? `z=${zv >= 0 ? "+" : ""}${zv.toFixed(2)}` : "";
+        return `<div class="tt-yr">${yr}</div><div>${label}<span class="tt-v">${valueDisplay}</span></div><div class="tt-z">${zDisplay}</div>`;
+      };
 
     row.innerHTML = `
       <div class="ind-head">
@@ -102,8 +113,18 @@ export function renderDomain(host: HTMLElement, data: CivisData, domain: string)
       <div class="ind-rows"></div>
     `;
     const indRowsHost = row.querySelector<HTMLDivElement>(".ind-rows")!;
-    indRowsHost.appendChild(makeIndRow(nameOf[state.hlA], aR, aZ, aSeries, "sage", SAGE, total, fmtTip(nameOf[state.hlA])));
-    indRowsHost.appendChild(makeIndRow(nameOf[state.hlB], bR, bZ, bSeries, "amber", AMBER, total, fmtTip(nameOf[state.hlB])));
+    indRowsHost.appendChild(
+      makeIndRow(
+        nameOf[state.hlA], aR, aRaw, aZ, ind, aZSeries, "sage", SAGE, total,
+        (i) => fmtTip(nameOf[state.hlA], aRawSeries, aZSeries)(i),
+      ),
+    );
+    indRowsHost.appendChild(
+      makeIndRow(
+        nameOf[state.hlB], bR, bRaw, bZ, ind, bZSeries, "amber", AMBER, total,
+        (i) => fmtTip(nameOf[state.hlB], bRawSeries, bZSeries)(i),
+      ),
+    );
 
     rowsHost.appendChild(row);
   }
@@ -112,18 +133,25 @@ export function renderDomain(host: HTMLElement, data: CivisData, domain: string)
 function makeIndRow(
   name: string,
   rank: number | undefined,
+  raw: number | null,
   z: number | null,
-  series: (number | null)[],
+  meta: IndicatorMeta,
+  zSeriesForSpark: (number | null)[],
   cls: "sage" | "amber",
   color: string,
   total: number,
-  formatTooltip: (i: number, v: number) => string,
+  formatTooltip: (i: number) => string,
 ): HTMLElement {
   const row = document.createElement("div");
   row.className = `ind-row ${cls}`;
-  const spark = sparkline({ values: series, color, formatTooltip });
+  const spark = sparkline({
+    values: zSeriesForSpark,
+    color,
+    formatTooltip: (i) => formatTooltip(i),
+  });
   row.innerHTML = `
     <span class="ir-name">${name}</span>
+    <span class="ir-value">${raw == null ? "—" : formatRaw(meta, raw)}</span>
     <span class="ir-rank">${rank ? ordinal(rank) : "—"} <span class="ir-of">of ${total}</span></span>
     <span class="ir-z">z=${zfmt(z)}</span>
   `;

@@ -15,6 +15,10 @@ export interface IndicatorMeta {
   label: string;
   domain: string;
   direction: "up" | "down";
+  /** Display formatting (schema v2+). Optional for back-compat with v1 JSON. */
+  precision?: number;
+  prefix?: string;
+  suffix?: string;
 }
 
 export interface CivisData {
@@ -26,6 +30,8 @@ export interface CivisData {
   indicators: IndicatorMeta[];
   /** indicator z-scores, [indicatorKey][iso][yearIdx] */
   z: Record<string, Record<string, (number | null)[]>>;
+  /** raw (interpolated) indicator values, [indicatorKey][iso][yearIdx] (schema v2+) */
+  raw?: Record<string, Record<string, (number | null)[]>>;
   /** domain z-mean, [domain][iso][yearIdx] */
   domain_z: Record<string, Record<string, (number | null)[]>>;
   /** composite (unweighted), [iso][yearIdx] */
@@ -34,6 +40,20 @@ export interface CivisData {
   latest: Record<string, number>;
   /** latest-year ISO ranking, best to worst */
   ranked: string[];
+}
+
+/** Format a raw indicator value with its prefix/precision/suffix. */
+export function formatRaw(meta: IndicatorMeta, v: number | null): string {
+  if (v == null) return "—";
+  const precision = meta.precision ?? 1;
+  const prefix = meta.prefix ?? "";
+  const suffix = meta.suffix ?? "";
+  // Use locale formatting for thousands separator on integer parts.
+  const formatted = v.toLocaleString("en-US", {
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision,
+  });
+  return `${prefix}${formatted}${suffix}`;
 }
 
 // Vite serves /public at root; we symlink web/public/data -> data/processed.
