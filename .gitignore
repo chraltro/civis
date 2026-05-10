@@ -18,6 +18,7 @@ node_modules/
 web/dist/
 web/.vite/
 web/*.tsbuildinfo
+web/public/
 *.log
 
 # Data
