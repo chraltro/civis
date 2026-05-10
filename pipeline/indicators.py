@@ -50,6 +50,9 @@ class Source:
     # Lower bound of plausible values (after scale). Sanity check.
     plausible_min: float | None = None
     plausible_max: float | None = None
+    # WB API "source" parameter. The default catalog doesn't include WGI
+    # (Worldwide Governance Indicators); those need source=23. None = default.
+    wb_source: int | None = None
 
 
 @dataclass(frozen=True)
@@ -210,7 +213,11 @@ INDICATORS: tuple[Indicator, ...] = (
         label="Political stability (WGI)",
         domain="Safety",
         direction="up",
-        sources=(Source("wb", "PV.EST"),),
+        sources=(
+            # WGI indicators (PV/VA/GE/RQ/RL/CC) live under WB API source=23.
+            # Without that param the API returns a no-data envelope.
+            Source("wb", "PV.EST", wb_source=23),
+        ),
         notes=(
             "World Bank's Worldwide Governance Indicators: Political Stability "
             "and Absence of Violence/Terrorism, estimate (-2.5 worst, +2.5 best). "
@@ -221,33 +228,10 @@ INDICATORS: tuple[Indicator, ...] = (
         ),
         precision=2,
     ),
-    Indicator(
-        key="safe_walking",
-        label="Feel safe walking alone at night",
-        domain="Safety",
-        direction="up",
-        sources=(
-            # Gallup World Poll question, hosted by OWID. Multiple slug
-            # candidates because OWID has reorganized this dataset before.
-            Source(
-                "owid",
-                "share-of-people-who-feel-safe-walking-alone-at-night",
-                column=("feel_safe_walking_alone", "safety_walking_alone",
-                        "share_safe_walking_alone"),
-            ),
-            Source(
-                "owid",
-                "feel-safe-walking-alone-at-night",
-                column=("feel_safe_walking_alone", "share_safe_walking_alone"),
-            ),
-            Source(
-                "owid",
-                "perceived-safety-walking-alone-at-night",
-                column=("feel_safe_walking_alone", "perceived_safety"),
-            ),
-        ),
-        precision=0, suffix="%",
-    ),
+    # safe_walking was dropped: all three OWID slug candidates 404'd. Without
+    # network access to probe OWID's current chart pages from the build
+    # sandbox, blind-guessing more slugs would just burn CI. Track as a
+    # follow-up issue if/when someone confirms the working slug.
 
     # ------------------ Equality ------------------
     Indicator(
@@ -530,6 +514,5 @@ DIRECTION_PANELS: dict[str, frozenset[str]] = {
     "top_10_income":    frozenset({"SVN", "FIN", "DNK", "NLD", "NOR", "BEL", "SWE", "CZE"}),
     "civil_liberties":  frozenset({"NOR", "DNK", "SWE", "NZL", "FIN", "CHE", "NLD", "DEU"}),
     "political_stability": frozenset({"NOR", "ISL", "FIN", "SWE", "NZL", "CHE", "SGP", "DNK"}),
-    "safe_walking":     frozenset({"SGP", "NOR", "CHE", "FIN", "ISL", "NLD", "DNK", "SWE"}),
     "protected_areas":  frozenset({"SVN", "DEU", "POL", "GRC", "ESP", "FRA", "GBR", "ITA"}),
 }

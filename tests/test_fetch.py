@@ -130,6 +130,27 @@ def test_fetch_all_indicator_with_no_working_source_is_a_hard_failure(
     assert manifest["n_sources_ok"] >= 10
 
 
+def test_fetch_wb_indicator_passes_source_param() -> None:
+    """WGI indicators need source=23 on the WB API. Verify the param threads through."""
+    from pipeline.fetch import fetch_wb_indicator
+
+    seen_urls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_urls.append(str(request.url))
+        # Standard WB envelope: [meta, rows]
+        return httpx.Response(200, json=[{"page": 1, "pages": 1}, []])
+
+    with _client_from_handler(handler) as client:
+        # Default: no source param
+        fetch_wb_indicator(client, "NY.GDP.PCAP.PP.KD")
+        # WGI: source=23
+        fetch_wb_indicator(client, "PV.EST", source=23)
+
+    assert "source=" not in seen_urls[0]
+    assert "source=23" in seen_urls[1]
+
+
 def test_fetch_all_first_source_fails_but_fallback_succeeds(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
