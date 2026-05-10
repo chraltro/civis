@@ -12,21 +12,24 @@ export interface SparklineOpts {
   color: string;
   /** Optional shared y-domain so multiple sparklines compare visually. */
   yDomain?: [number, number];
-  width?: number;
-  height?: number;
+  /** ViewBox width — actual rendered width comes from CSS (width: 100%). */
+  vbWidth?: number;
+  /** ViewBox height — actual rendered height comes from CSS. */
+  vbHeight?: number;
 }
 
 export function sparkline(opts: SparklineOpts): SVGSVGElement {
-  const W = opts.width ?? 88;
-  const H = opts.height ?? 22;
+  const W = opts.vbWidth ?? 200;
+  const H = opts.vbHeight ?? 24;
   const pad = 2;
 
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg") as SVGSVGElement;
   svg.setAttribute("class", "sparkline");
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  svg.setAttribute("width", String(W));
-  svg.setAttribute("height", String(H));
+  // Stretch to fill the container; slight horizontal stretching of the trend
+  // line is fine for an impressionistic sparkline.
+  svg.setAttribute("preserveAspectRatio", "none");
 
   const present = opts.values
     .map((v, i) => (v == null ? null : { i, v }))
