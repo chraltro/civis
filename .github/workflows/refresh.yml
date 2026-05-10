@@ -2,7 +2,12 @@ name: refresh
 
 # Weekly cron: fetch, process, validate. On success, commit the new processed
 # files plus a dated snapshot, then trigger the deploy. On failure, open an
-# issue with the validation output and don't deploy.
+# issue with the validation output and don't commit (so existing data is
+# preserved).
+#
+# All three steps run even if a previous one failed, so we get the most
+# diagnostic information possible. The commit step only fires when the whole
+# pipeline was green.
 
 on:
   schedule:
@@ -34,50 +39,77 @@ jobs:
         run: uv sync --all-extras
 
       - name: Fetch
-        run: uv run civis fetch
+        id: fetch
+        run: |
+          set -o pipefail
+          uv run civis fetch 2>&1 | tee fetch.log
 
       - name: Process
-        run: uv run civis process --snapshot
+        id: process
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          uv run civis process --snapshot 2>&1 | tee process.log
 
       - name: Validate
         id: validate
+        if: ${{ !cancelled() }}
         run: |
+          set -o pipefail
           if [ "${{ github.event.inputs.update_snapshot }}" = "true" ]; then
             uv run civis validate --update-snapshot 2>&1 | tee validate.log
           else
             uv run civis validate 2>&1 | tee validate.log
           fi
-        continue-on-error: true
 
-      - name: Open issue on validation failure
-        if: steps.validate.outcome == 'failure'
+      - name: Open issue on failure
+        if: failure()
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const log = fs.existsSync('validate.log')
-              ? fs.readFileSync('validate.log', 'utf8').slice(-4000)
-              : '(no log captured)';
+            const tail = (path) =>
+              fs.existsSync(path) ? fs.readFileSync(path, 'utf8').slice(-2500) : '(no log)';
+            const fetchLog    = tail('fetch.log');
+            const processLog  = tail('process.log');
+            const validateLog = tail('validate.log');
+            const fetchOK    = "${{ steps.fetch.outcome    }}" === 'success';
+            const processOK  = "${{ steps.process.outcome  }}" === 'success';
+            const validateOK = "${{ steps.validate.outcome }}" === 'success';
+            const status = (s) => s ? 'ok' : 'FAILED';
+            const today = new Date().toISOString().slice(0,10);
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `Refresh validation failed (${new Date().toISOString().slice(0,10)})`,
+              title: `Refresh failed (${today})`,
               labels: ['data-refresh', 'needs-triage'],
               body: [
-                'The weekly data refresh ran into validation failures.',
-                'No new data has been deployed; the existing data file is unchanged.',
-                '',
+                `Weekly refresh failed. No new data has been committed; the existing data file (if any) is unchanged.`,
+                ``,
+                `**Step status**`,
+                `- fetch: ${status(fetchOK)}`,
+                `- process: ${status(processOK)}`,
+                `- validate: ${status(validateOK)}`,
+                ``,
+                `**fetch (last 2500 chars)**`,
                 '```',
-                log,
+                fetchLog,
+                '```',
+                ``,
+                `**process (last 2500 chars)**`,
+                '```',
+                processLog,
+                '```',
+                ``,
+                `**validate (last 2500 chars)**`,
+                '```',
+                validateLog,
                 '```',
               ].join('\n'),
             });
 
-      - name: Fail if validation failed
-        if: steps.validate.outcome == 'failure'
-        run: exit 1
-
       - name: Commit refreshed data
+        if: success()
         run: |
           git config user.name "civis-bot"
           git config user.email "civis-bot@users.noreply.github.com"
