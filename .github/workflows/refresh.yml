@@ -62,6 +62,19 @@ jobs:
             uv run civis validate 2>&1 | tee validate.log
           fi
 
+      - name: Upload diagnostic artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: refresh-diagnostics
+          path: |
+            data/raw/manifest.json
+            fetch.log
+            process.log
+            validate.log
+          if-no-files-found: ignore
+          retention-days: 30
+
       - name: Open issue on failure
         if: failure()
         uses: actions/github-script@v7
@@ -73,6 +86,24 @@ jobs:
             const fetchLog    = tail('fetch.log');
             const processLog  = tail('process.log');
             const validateLog = tail('validate.log');
+            let manifestSummary = '(no manifest)';
+            if (fs.existsSync('data/raw/manifest.json')) {
+              try {
+                const m = JSON.parse(fs.readFileSync('data/raw/manifest.json', 'utf8'));
+                const lines = [
+                  `indicators ok: ${m.n_indicators_ok}/${m.n_indicators_total}`,
+                  `sources ok: ${m.n_sources_ok}, hard-failed: ${m.n_sources_failed}, soft-failed: ${m.n_sources_soft_failed}`,
+                  ``,
+                  `failures:`,
+                  ...(m.failures || []).map(f => `  - ${f.indicator} [${f.kind}:${f.ref}] ${f.error}`),
+                ];
+                if (m.soft_failures && m.soft_failures.length) {
+                  lines.push('', 'soft failures (sibling source recovered):');
+                  m.soft_failures.forEach(f => lines.push(`  - ${f.indicator} [${f.kind}:${f.ref}] ${f.error}`));
+                }
+                manifestSummary = lines.join('\n');
+              } catch (e) { manifestSummary = `(manifest parse error: ${e.message})`; }
+            }
             const fetchOK    = "${{ steps.fetch.outcome    }}" === 'success';
             const processOK  = "${{ steps.process.outcome  }}" === 'success';
             const validateOK = "${{ steps.validate.outcome }}" === 'success';
@@ -85,23 +116,29 @@ jobs:
               labels: ['data-refresh', 'needs-triage'],
               body: [
                 `Weekly refresh failed. No new data has been committed; the existing data file (if any) is unchanged.`,
+                `Diagnostics artifact: \`refresh-diagnostics\` on this run.`,
                 ``,
                 `**Step status**`,
                 `- fetch: ${status(fetchOK)}`,
                 `- process: ${status(processOK)}`,
                 `- validate: ${status(validateOK)}`,
                 ``,
-                `**fetch (last 2500 chars)**`,
+                `**fetch manifest summary**`,
+                '```',
+                manifestSummary,
+                '```',
+                ``,
+                `**fetch.log (tail)**`,
                 '```',
                 fetchLog,
                 '```',
                 ``,
-                `**process (last 2500 chars)**`,
+                `**process.log (tail)**`,
                 '```',
                 processLog,
                 '```',
                 ``,
-                `**validate (last 2500 chars)**`,
+                `**validate.log (tail)**`,
                 '```',
                 validateLog,
                 '```',

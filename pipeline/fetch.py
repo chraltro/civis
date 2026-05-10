@@ -272,41 +272,76 @@ def fetch_source(
 def fetch_all(raw_dir: Path, *, sleep_s: float = 0.2) -> list[FetchResult]:
     """Fetch every source for every indicator. Writes a manifest at the end.
 
-    Per-source isolation: a single failure does not abort the run. The other
-    indicators still get fetched, the manifest records both successes and
-    failures, and the function raises a single RuntimeError at the end if
-    any source ultimately failed (after retries). That way CI marks the run
-    as failed without throwing away the partial fetch state.
+    Per-indicator success: an indicator counts as fetched if AT LEAST ONE of
+    its sources succeeds. Per-source isolation: a single failed source does
+    not abort the run, and we keep trying the next source for the same
+    indicator. Only when ALL sources for an indicator fail do we record it
+    as a fatal failure.
+
+    The function raises a single RuntimeError at the end if any indicator
+    has no working source. CI marks the run as failed without throwing
+    away the partial fetch state (manifest is written first).
     """
     raw_dir.mkdir(parents=True, exist_ok=True)
     results: list[FetchResult] = []
     failures: list[FetchFailure] = []
+    soft_failures: list[FetchFailure] = []  # source-level failures hidden by a sibling success
     headers = {"User-Agent": USER_AGENT}
     with httpx.Client(timeout=DEFAULT_TIMEOUT, headers=headers, follow_redirects=True) as client:
         for ind in INDICATORS:
+            ind_attempts: list[tuple[Source, FetchResult | Exception]] = []
+            ind_succeeded = False
             for src in ind.sources:
                 try:
                     res = fetch_source(client, ind, src, raw_dir)
+                    ind_attempts.append((src, res))
                     results.append(res)
+                    ind_succeeded = True
                     log.info(
                         "  %s [%s:%s] -> %d rows, %d countries",
                         ind.key, src.kind, src.ref, res.n_rows, res.n_countries,
                     )
+                    break  # first success wins; stop trying alternates
                 except Exception as e:  # noqa: BLE001
-                    log.error("  %s [%s:%s] FAILED after retries: %s",
-                              ind.key, src.kind, src.ref, e)
-                    failures.append(FetchFailure(
-                        indicator_key=ind.key,
-                        source_kind=src.kind,
-                        source_ref=src.ref,
-                        error=f"{type(e).__name__}: {e}",
-                    ))
+                    ind_attempts.append((src, e))
+                    log.warning(
+                        "  %s [%s:%s] failed (%s); %s",
+                        ind.key, src.kind, src.ref, type(e).__name__,
+                        "trying next source" if src is not ind.sources[-1] else "no more sources",
+                    )
                 time.sleep(sleep_s)
+
+            if not ind_succeeded:
+                # Promote every per-source failure to a hard failure for this indicator.
+                for src, payload in ind_attempts:
+                    if isinstance(payload, Exception):
+                        failures.append(FetchFailure(
+                            indicator_key=ind.key,
+                            source_kind=src.kind,
+                            source_ref=src.ref,
+                            error=f"{type(payload).__name__}: {payload}",
+                        ))
+                log.error("  %s: ALL %d source(s) failed", ind.key, len(ind_attempts))
+            else:
+                # Sibling failures (alternates that failed before the first success) are
+                # informational only and recorded separately.
+                for src, payload in ind_attempts:
+                    if isinstance(payload, Exception):
+                        soft_failures.append(FetchFailure(
+                            indicator_key=ind.key,
+                            source_kind=src.kind,
+                            source_ref=src.ref,
+                            error=f"{type(payload).__name__}: {payload}",
+                        ))
 
     manifest = {
         "generated_at": datetime.now(UTC).isoformat(),
+        "n_indicators_total": len(INDICATORS),
+        "n_indicators_ok": len(INDICATORS) - len({f.indicator_key for f in failures}),
+        "n_indicators_failed": len({f.indicator_key for f in failures}),
         "n_sources_ok": len(results),
         "n_sources_failed": len(failures),
+        "n_sources_soft_failed": len(soft_failures),
         "sources": [
             {
                 "indicator": r.indicator_key,
@@ -328,15 +363,24 @@ def fetch_all(raw_dir: Path, *, sleep_s: float = 0.2) -> list[FetchResult]:
             }
             for f in failures
         ],
+        "soft_failures": [
+            {
+                "indicator": f.indicator_key,
+                "kind": f.source_kind,
+                "ref": f.source_ref,
+                "error": f.error,
+            }
+            for f in soft_failures
+        ],
     }
     (raw_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
 
     if failures:
         # Raise at end so the manifest is written first.
-        summary = ", ".join(f"{f.indicator_key}({f.source_kind})" for f in failures)
+        summary = ", ".join(sorted({f.indicator_key for f in failures}))
         raise RuntimeError(
-            f"{len(failures)} source(s) failed after retries: {summary}. "
-            f"See {raw_dir / 'manifest.json'} for details."
+            f"{manifest['n_indicators_failed']} indicator(s) failed (no working source): "
+            f"{summary}. See {raw_dir / 'manifest.json'} for details."
         )
     return results
 
