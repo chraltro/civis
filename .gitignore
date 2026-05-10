@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Node / Vite
+node_modules/
+web/dist/
+web/.vite/
+web/*.tsbuildinfo
+*.log
+
+# Data
+data/raw/*
+!data/raw/.gitkeep
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
