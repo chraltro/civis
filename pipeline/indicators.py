@@ -60,6 +60,12 @@ class Indicator:
     direction: Direction
     sources: tuple[Source, ...]
     notes: str = ""
+    # Display formatting for raw values (web reads these from civis.json).
+    # final = f"{prefix}{value:.{precision}f}{suffix}", with thousands sep on
+    # the integer part by the web layer.
+    precision: int = 1
+    prefix: str = ""
+    suffix: str = ""
 
 
 # --------------------------------------------------------------------------
@@ -77,6 +83,7 @@ INDICATORS: tuple[Indicator, ...] = (
         domain="Material",
         direction="up",
         sources=(Source("wb", "NY.GDP.PCAP.PP.KD"),),
+        precision=0, prefix="$",
     ),
     Indicator(
         key="household_cons",
@@ -84,6 +91,7 @@ INDICATORS: tuple[Indicator, ...] = (
         domain="Material",
         direction="up",
         sources=(Source("wb", "NE.CON.PRVT.PC.KD"),),
+        precision=0, prefix="$",
     ),
     Indicator(
         key="health_pc",
@@ -91,6 +99,7 @@ INDICATORS: tuple[Indicator, ...] = (
         domain="Material",
         direction="up",
         sources=(Source("wb", "SH.XPD.CHEX.PC.CD"),),
+        precision=0, prefix="$",
     ),
     Indicator(
         key="broadband",
@@ -98,6 +107,7 @@ INDICATORS: tuple[Indicator, ...] = (
         domain="Material",
         direction="up",
         sources=(Source("wb", "IT.NET.BBND.P2"),),
+        precision=1,
     ),
 
     # ------------------ Health ------------------
@@ -107,6 +117,7 @@ INDICATORS: tuple[Indicator, ...] = (
         domain="Health",
         direction="up",
         sources=(Source("wb", "SP.DYN.LE00.IN"),),
+        precision=1, suffix=" yrs",
     ),
     Indicator(
         key="infant_mort",
@@ -114,6 +125,7 @@ INDICATORS: tuple[Indicator, ...] = (
         domain="Health",
         direction="down",
         sources=(Source("wb", "SP.DYN.IMRT.IN"),),
+        precision=1,
     ),
     Indicator(
         key="maternal_mort",
@@ -121,6 +133,7 @@ INDICATORS: tuple[Indicator, ...] = (
         domain="Health",
         direction="down",
         sources=(Source("wb", "SH.STA.MMRT"),),
+        precision=0,
     ),
     Indicator(
         key="child_mort",
@@ -128,6 +141,7 @@ INDICATORS: tuple[Indicator, ...] = (
         domain="Health",
         direction="down",
         sources=(Source("wb", "SH.DYN.MORT"),),
+        precision=1,
     ),
     Indicator(
         key="healthy_life_exp",
@@ -140,6 +154,7 @@ INDICATORS: tuple[Indicator, ...] = (
             Source("owid", "healthy-life-expectancy-ihme",
                    column=("healthy_life_expectancy", "hale_ihme")),
         ),
+        precision=1, suffix=" yrs",
     ),
 
     # ------------------ Knowledge ------------------
@@ -155,56 +170,63 @@ INDICATORS: tuple[Indicator, ...] = (
                 column=("mean_years_of_schooling", "average_years_of_schooling"),
             ),
         ),
+        precision=1, suffix=" yrs",
     ),
     Indicator(
         key="tertiary_attain",
-        label="Tertiary attainment, 25+ (%)",
+        label="Tertiary attainment, 25+",
         domain="Knowledge",
         direction="up",
         sources=(Source("wb", "SE.TER.CUAT.BA.ZS"),),
+        precision=0, suffix="%",
     ),
     Indicator(
         key="internet_users",
-        label="Internet users (% population)",
+        label="Internet users",
         domain="Knowledge",
         direction="up",
         sources=(Source("wb", "IT.NET.USER.ZS"),),
+        precision=0, suffix="%",
     ),
     Indicator(
         key="research_dev",
-        label="R&D spending (% GDP)",
+        label="R&D spending",
         domain="Knowledge",
         direction="up",
         sources=(Source("wb", "GB.XPD.RSDV.GD.ZS"),),
+        precision=2, suffix="% GDP",
     ),
 
     # ------------------ Safety ------------------
     Indicator(
         key="homicides",
-        label="Homicide rate (per 100k)",
+        label="Homicide rate",
         domain="Safety",
         direction="down",
         sources=(Source("wb", "VC.IHR.PSRC.P5"),),
+        precision=2, suffix=" / 100k",
     ),
     Indicator(
         key="suicide",
-        label="Suicide rate (per 100k)",
+        label="Suicide rate",
         domain="Safety",
         direction="down",
         sources=(Source("wb", "SH.STA.SUIC.P5"),),
+        precision=1, suffix=" / 100k",
     ),
     Indicator(
         key="road_deaths",
-        label="Road traffic deaths (per 100k)",
+        label="Road traffic deaths",
         domain="Safety",
         direction="down",
         sources=(Source("wb", "SH.STA.TRAF.P5"),),
+        precision=1, suffix=" / 100k",
     ),
 
     # ------------------ Equality ------------------
     Indicator(
         key="gini",
-        label="Income Gini (post-tax, 0–100)",
+        label="Income Gini (post-tax)",
         domain="Equality",
         direction="down",
         sources=(
@@ -216,6 +238,7 @@ INDICATORS: tuple[Indicator, ...] = (
             "feeds (LIS) use 0..1. The merge layer rescales by 100x if it detects "
             "a sub-1.0 series."
         ),
+        precision=1,
     ),
     Indicator(
         key="gdi",
@@ -234,6 +257,7 @@ INDICATORS: tuple[Indicator, ...] = (
             "is approximately correct for our 29-country panel since most values "
             "are <= 1.0. Open issue: consider folding as 1 - |1 - GDI|."
         ),
+        precision=3,
     ),
     Indicator(
         key="top_10_income",
@@ -254,6 +278,7 @@ INDICATORS: tuple[Indicator, ...] = (
                 column=("top_10_share", "p90p100"),
             ),
         ),
+        precision=1, suffix="%",
     ),
 
     # ------------------ Freedom ------------------
@@ -269,6 +294,7 @@ INDICATORS: tuple[Indicator, ...] = (
                 column=("liberal_democracy_index", "libdem_vdem_owid"),
             ),
         ),
+        precision=2,
     ),
     Indicator(
         key="press_freedom",
@@ -302,10 +328,11 @@ INDICATORS: tuple[Indicator, ...] = (
             "If you upgrade to the post-2022 series, flip the direction and "
             "update the test panel."
         ),
+        precision=1,
     ),
     Indicator(
         key="corruption",
-        label="Anti-corruption (CPI, higher=cleaner)",
+        label="Anti-corruption (CPI)",
         domain="Freedom",
         direction="up",
         sources=(
@@ -315,6 +342,7 @@ INDICATORS: tuple[Indicator, ...] = (
                 column=("corruption_perception_index", "cpi_score"),
             ),
         ),
+        precision=0,
     ),
     Indicator(
         key="civil_liberties",
@@ -333,6 +361,7 @@ INDICATORS: tuple[Indicator, ...] = (
                 column=("civil_liberties_index",),
             ),
         ),
+        precision=2,
     ),
 
     # ------------------ Work ------------------
@@ -348,13 +377,15 @@ INDICATORS: tuple[Indicator, ...] = (
                 column=("annual_working_hours_per_worker", "average_annual_hours_worked"),
             ),
         ),
+        precision=0, suffix=" hrs",
     ),
     Indicator(
         key="unemployment",
-        label="Unemployment rate (%)",
+        label="Unemployment rate",
         domain="Work",
         direction="down",
         sources=(Source("wb", "SL.UEM.TOTL.ZS"),),
+        precision=1, suffix="%",
     ),
     Indicator(
         key="employment",
@@ -362,19 +393,21 @@ INDICATORS: tuple[Indicator, ...] = (
         domain="Work",
         direction="up",
         sources=(Source("wb", "SL.EMP.TOTL.SP.ZS"),),
+        precision=0, suffix="%",
     ),
 
     # ------------------ Environment ------------------
     Indicator(
         key="pm25",
-        label="PM2.5 air pollution (µg/m³)",
+        label="PM2.5 air pollution",
         domain="Environment",
         direction="down",
         sources=(Source("wb", "EN.ATM.PM25.MC.M3"),),
+        precision=1, suffix=" µg/m³",
     ),
     Indicator(
         key="co2_pc",
-        label="CO₂ emissions per capita (t)",
+        label="CO₂ emissions per capita",
         domain="Environment",
         direction="down",
         sources=(
@@ -384,10 +417,11 @@ INDICATORS: tuple[Indicator, ...] = (
                 column=("annual_co_emissions_per_capita", "co2_per_capita"),
             ),
         ),
+        precision=1, suffix=" t",
     ),
     Indicator(
         key="renewable",
-        label="Renewable energy share (%)",
+        label="Renewable energy share",
         domain="Environment",
         direction="up",
         sources=(
@@ -397,13 +431,15 @@ INDICATORS: tuple[Indicator, ...] = (
                 column=("renewables_share_energy", "renewable_share_energy"),
             ),
         ),
+        precision=0, suffix="%",
     ),
     Indicator(
         key="protected_areas",
-        label="Terrestrial protected areas (% land)",
+        label="Terrestrial protected areas",
         domain="Environment",
         direction="up",
         sources=(Source("wb", "ER.LND.PTLD.ZS"),),
+        precision=1, suffix="% land",
     ),
 
     # ------------------ Wellbeing ------------------
@@ -423,6 +459,7 @@ INDICATORS: tuple[Indicator, ...] = (
                 ),
             ),
         ),
+        precision=2,
     ),
     Indicator(
         key="adolescent_fert",
@@ -434,6 +471,7 @@ INDICATORS: tuple[Indicator, ...] = (
             "Placed in Wellbeing as a proxy for life-trajectory autonomy. "
             "Defensible but contested. Could move to Health or Equality."
         ),
+        precision=1, suffix=" / 1k",
     ),
     Indicator(
         key="positive_affect",
@@ -452,6 +490,7 @@ INDICATORS: tuple[Indicator, ...] = (
                 column=("positive_affect",),
             ),
         ),
+        precision=2,
     ),
 )
 

@@ -219,14 +219,16 @@ def _series_for(panel: pd.DataFrame, col: str, iso: str) -> list[float | None]:
 
 
 def to_dashboard_json(
+    panel: pd.DataFrame,
     z_indicators: pd.DataFrame,
     z_domains: pd.DataFrame,
     composite: pd.DataFrame,
 ) -> dict:
     """Shape required by the dashboard.
 
-    The web app reads only z-scores, never raw values — that's a deliberate
-    simplification of the prototype. Raw values go to civis.csv for power users.
+    schema_version = 2 carries both z-scores and raw values plus per-indicator
+    display formatting (precision/prefix/suffix), so the web can render
+    "97% internet users" alongside "z=+1.24" without a second fetch.
     """
     countries = [{"iso": c.iso3, "name": c.name} for c in COUNTRIES]
     indicators_meta = [
@@ -235,11 +237,18 @@ def to_dashboard_json(
             "label": i.label,
             "domain": i.domain,
             "direction": i.direction,
+            "precision": i.precision,
+            "prefix": i.prefix,
+            "suffix": i.suffix,
         }
         for i in INDICATORS
     ]
     z = {
         i.key: {iso: _series_for(z_indicators, i.key, iso) for iso in ISO3_LIST}
+        for i in INDICATORS
+    }
+    raw = {
+        i.key: {iso: _series_for(panel, i.key, iso) for iso in ISO3_LIST}
         for i in INDICATORS
     }
     domain_z = {
@@ -255,13 +264,14 @@ def to_dashboard_json(
         if composite_series[iso][latest_idx] is not None
     }
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "generated_at": datetime.now(UTC).isoformat(),
         "years": YEARS,
         "countries": countries,
         "domains": list(DOMAINS),
         "indicators": indicators_meta,
         "z": z,
+        "raw": raw,
         "domain_z": domain_z,
         "composite": composite_series,
         "latest": latest,
@@ -304,7 +314,7 @@ def run(cfg: ProcessConfig) -> dict:
     log.info("Aggregating to composite")
     composite = compute_composite(z_domains)
 
-    out = to_dashboard_json(z_indicators, z_domains, composite)
+    out = to_dashboard_json(panel, z_indicators, z_domains, composite)
     out_json = cfg.out_dir / "civis.json"
     out_json.write_text(json.dumps(out, indent=None, separators=(",", ":")))
     log.info("Wrote %s (%d KB)", out_json, out_json.stat().st_size // 1024)
