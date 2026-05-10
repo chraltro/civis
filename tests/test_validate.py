@@ -111,6 +111,20 @@ def test_ranking_snapshot_create_and_match(populate_raw: Path, tmp_path: Path) -
     assert not issues
 
 
+def test_ranking_snapshot_creates_parent_dir(populate_raw: Path, tmp_path: Path) -> None:
+    """When the snapshot path's parent directory doesn't exist yet, --update
+    should create it rather than crashing with FileNotFoundError."""
+    panel = build_indicator_panel(populate_raw)
+    z = compute_indicator_z(panel)
+    z_dom = compute_domain_z(z)
+    comp = compute_composite(z_dom)
+    snap = tmp_path / "deep" / "nested" / "fixtures" / "ranking.json"
+    assert not snap.parent.exists()
+    issues = check_ranking_snapshot(comp, snap, update=True)
+    assert not issues
+    assert snap.exists()
+
+
 def test_ranking_snapshot_detects_change(populate_raw: Path, tmp_path: Path) -> None:
     panel = build_indicator_panel(populate_raw)
     z = compute_indicator_z(panel)
