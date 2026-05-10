@@ -1,16 +1,14 @@
-/**
- * Country highlight pickers + swap button.
- */
+/** Country pickers + swap button + weights/about toggles. */
 
 import type { CivisData } from "../data";
 import { setHighlight, state, swap } from "../state";
 
-export function buildControls(data: CivisData): void {
-  const opts = data.countries
+export function buildHeader(data: CivisData): void {
+  const sorted = data.countries
     .slice()
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((c) => `<option value="${c.iso}">${c.name}</option>`)
-    .join("");
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const opts = sorted.map((c) => `<option value="${c.iso}">${c.name}</option>`).join("");
+
   const a = document.getElementById("sel-a") as HTMLSelectElement | null;
   const b = document.getElementById("sel-b") as HTMLSelectElement | null;
   if (!a || !b) return;
@@ -18,6 +16,7 @@ export function buildControls(data: CivisData): void {
   b.innerHTML = opts;
   a.value = state.hlA;
   b.value = state.hlB;
+
   a.addEventListener("change", () => {
     setHighlight("A", a.value);
     a.value = state.hlA;
@@ -33,16 +32,24 @@ export function buildControls(data: CivisData): void {
     a.value = state.hlA;
     b.value = state.hlB;
   });
+
+  for (const id of ["weights-toggle", "about-toggle"] as const) {
+    document.getElementById(id)?.addEventListener("click", () => {
+      const panelId = id === "weights-toggle" ? "weights-panel" : "about-panel";
+      const otherId = panelId === "weights-panel" ? "about-panel" : "weights-panel";
+      document.getElementById(otherId)?.setAttribute("hidden", "");
+      const panel = document.getElementById(panelId);
+      if (panel) {
+        if (panel.hasAttribute("hidden")) panel.removeAttribute("hidden");
+        else panel.setAttribute("hidden", "");
+      }
+    });
+  }
 }
 
-export function updateControlsFromState(): void {
+export function syncHeaderFromState(): void {
   const a = document.getElementById("sel-a") as HTMLSelectElement | null;
   const b = document.getElementById("sel-b") as HTMLSelectElement | null;
   if (a) a.value = state.hlA;
   if (b) b.value = state.hlB;
-  const nameOf = (window as unknown as { __civisNames?: Record<string, string> }).__civisNames ?? {};
-  const legA = document.getElementById("legend-a");
-  const legB = document.getElementById("legend-b");
-  if (legA) legA.innerHTML = `<span style="color:#94b09e">sage = ${nameOf[state.hlA] ?? state.hlA}</span>`;
-  if (legB) legB.innerHTML = `<span style="color:#d2965a">orange = ${nameOf[state.hlB] ?? state.hlB}</span>`;
 }

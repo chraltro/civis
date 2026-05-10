@@ -1,14 +1,14 @@
 /**
- * Bar chart: latest-year ranking, all 29 countries.
+ * Horizontal bar chart for a country ranking. Generic over the value: pass a
+ * `valueOf(iso) -> number | null` and an optional ordering. Used for the
+ * Overview composite ranking and for per-domain rankings.
  */
 
 import * as d3 from "d3";
 import type { CivisData } from "../data";
-import type { CompositeContext } from "../state";
 import { state } from "../state";
 
 const COL = {
-  ink: "#d8dccd",
   inkFaint: "#6e7869",
   sage: "#94b09e",
   sageSoft: "#6d8a78",
@@ -20,8 +20,16 @@ function isMobile(): boolean {
   return window.innerWidth < 600;
 }
 
-export function drawBar(data: CivisData, ctx: CompositeContext): void {
-  const svg = d3.select<SVGSVGElement, unknown>("#bar");
+export interface BarOpts {
+  selector: string;
+  data: CivisData;
+  valueOf: (iso: string) => number | null;
+  /** Optional title shown above the chart, in the panel header. */
+  formatValue?: (v: number) => string;
+}
+
+export function drawBar(opts: BarOpts): void {
+  const svg = d3.select<SVGSVGElement, unknown>(opts.selector);
   svg.selectAll("*").remove();
 
   const mobile = isMobile();
@@ -29,20 +37,19 @@ export function drawBar(data: CivisData, ctx: CompositeContext): void {
   const H = mobile ? 900 : 640;
   const margin = mobile
     ? { top: 6, right: 50, bottom: 32, left: 110 }
-    : { top: 6, right: 50, bottom: 32, left: 130 };
+    : { top: 6, right: 56, bottom: 32, left: 130 };
   const innerW = W - margin.left - margin.right;
   const innerH = H - margin.top - margin.bottom;
   svg.attr("viewBox", `0 0 ${W} ${H}`);
   const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-  const nameOf = Object.fromEntries(data.countries.map((c) => [c.iso, c.name]));
-  const rows = ctx.ranked.map((iso) => ({
-    iso,
-    name: nameOf[iso],
-    v: ctx.latest[iso],
-  }));
+  const fmt = opts.formatValue ?? ((v) => (v >= 0 ? "+" : "") + v.toFixed(2));
+  const rows = opts.data.countries
+    .map((c) => ({ iso: c.iso, name: c.name, v: opts.valueOf(c.iso) }))
+    .filter((r): r is { iso: string; name: string; v: number } => r.v != null)
+    .sort((a, b) => b.v - a.v);
 
-  const maxV = d3.max(rows, (d) => Math.abs(d.v ?? 0)) ?? 1;
+  const maxV = d3.max(rows, (d) => Math.abs(d.v)) ?? 1;
   const minV = d3.min(rows, (d) => d.v) ?? 0;
   const lo = Math.min(0, Math.floor(minV * 10) / 10);
   const hi = Math.ceil(maxV * 10) / 10;
@@ -72,7 +79,8 @@ export function drawBar(data: CivisData, ctx: CompositeContext): void {
     .attr("y1", 0)
     .attr("y2", innerH);
 
-  const cls = (iso: string) => (iso === state.hlA ? "hl-a" : iso === state.hlB ? "hl-b" : "");
+  const cls = (iso: string) =>
+    iso === state.hlA ? "hl-a" : iso === state.hlB ? "hl-b" : "";
   const fill = (iso: string) => {
     if (iso === state.hlB) return COL.amber;
     if (iso === state.hlA) return "#b8c9bd";
@@ -108,7 +116,7 @@ export function drawBar(data: CivisData, ctx: CompositeContext): void {
     .attr("y", (d) => y(d.iso)! + y.bandwidth() / 2 + 0.5)
     .attr("dy", "0.35em")
     .attr("font-size", mobile ? 11 : 10)
-    .text((d) => (d.v >= 0 ? "+" : "") + d.v.toFixed(2));
+    .text((d) => fmt(d.v));
 
   const xAxis = d3
     .axisBottom(x)
@@ -122,8 +130,7 @@ export function drawBar(data: CivisData, ctx: CompositeContext): void {
     .call(xAxis);
   xAxisG.select(".domain").remove();
   xAxisG.selectAll("text").attr("dy", 18).attr("font-size", mobile ? 11 : 10);
-  // silence the unused vars if any
-  void COL.ink;
   void COL.inkFaint;
+  void COL.sage;
   void COL.grid;
 }

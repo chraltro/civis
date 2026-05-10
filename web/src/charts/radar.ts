@@ -127,19 +127,20 @@ export function drawRadar(data: CivisData, ctx: CompositeContext): void {
       .text((z >= 0 ? "+" : "") + z);
   }
 
+  // Use the (weighted) composite from ctx for the score chips
   const nameOf = Object.fromEntries(data.countries.map((c) => [c.iso, c.name]));
   const titleEl = document.getElementById("radar-title");
   if (titleEl) {
-    titleEl.innerHTML = `<span style="color:var(--sage)">${nameOf[state.hlA]}</span> vs <span style="color:var(--amber)">${nameOf[state.hlB]}</span>`;
+    titleEl.innerHTML = `<span class="sage">${nameOf[state.hlA]}</span> vs <span class="amber">${nameOf[state.hlB]}</span>`;
   }
   const aEl = document.getElementById("radar-score-a");
   const bEl = document.getElementById("radar-score-b");
   if (aEl) {
     const v = ctx.latest[state.hlA];
-    aEl.textContent = v == null ? "—" : `${nameOf[state.hlA]} ${v >= 0 ? "+" : ""}${v.toFixed(2)}`;
+    aEl.textContent = v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}`;
   }
   if (bEl) {
     const v = ctx.latest[state.hlB];
-    bEl.textContent = v == null ? "—" : `${nameOf[state.hlB]} ${v >= 0 ? "+" : ""}${v.toFixed(2)}`;
+    bEl.textContent = v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}`;
   }
 }
