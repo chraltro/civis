@@ -93,14 +93,10 @@ INDICATORS: tuple[Indicator, ...] = (
         sources=(Source("wb", "NE.CON.PRVT.PC.KD"),),
         precision=0, prefix="$",
     ),
-    Indicator(
-        key="health_pc",
-        label="Health spending per capita",
-        domain="Material",
-        direction="up",
-        sources=(Source("wb", "SH.XPD.CHEX.PC.CD"),),
-        precision=0, prefix="$",
-    ),
+    # health_pc was dropped: per-capita health spending with direction=up
+    # rewards systems that pay more for the same outcome (USA spends 2x other
+    # OECD countries with worse outcomes). Health *outcomes* are captured by
+    # the Health domain (life expectancy, infant/maternal/child mortality).
     Indicator(
         key="broadband",
         label="Fixed broadband subs (per 100)",
@@ -208,6 +204,49 @@ INDICATORS: tuple[Indicator, ...] = (
         direction="down",
         sources=(Source("wb", "SH.STA.TRAF.P5"),),
         precision=1, suffix=" / 100k",
+    ),
+    Indicator(
+        key="political_stability",
+        label="Political stability (WGI)",
+        domain="Safety",
+        direction="up",
+        sources=(Source("wb", "PV.EST"),),
+        notes=(
+            "World Bank's Worldwide Governance Indicators: Political Stability "
+            "and Absence of Violence/Terrorism, estimate (-2.5 worst, +2.5 best). "
+            "Captures perceived likelihood of conflict, terrorism, and politically-"
+            "motivated violence. Distinguishes safe-feeling-but-conflict-adjacent "
+            "places (Israel, Korea historically) from civilian-violence-low-and-"
+            "stable places (Nordics, NL)."
+        ),
+        precision=2,
+    ),
+    Indicator(
+        key="safe_walking",
+        label="Feel safe walking alone at night",
+        domain="Safety",
+        direction="up",
+        sources=(
+            # Gallup World Poll question, hosted by OWID. Multiple slug
+            # candidates because OWID has reorganized this dataset before.
+            Source(
+                "owid",
+                "share-of-people-who-feel-safe-walking-alone-at-night",
+                column=("feel_safe_walking_alone", "safety_walking_alone",
+                        "share_safe_walking_alone"),
+            ),
+            Source(
+                "owid",
+                "feel-safe-walking-alone-at-night",
+                column=("feel_safe_walking_alone", "share_safe_walking_alone"),
+            ),
+            Source(
+                "owid",
+                "perceived-safety-walking-alone-at-night",
+                column=("feel_safe_walking_alone", "perceived_safety"),
+            ),
+        ),
+        precision=0, suffix="%",
     ),
 
     # ------------------ Equality ------------------
@@ -461,7 +500,7 @@ for _i in INDICATORS:
 DIRECTION_PANELS: dict[str, frozenset[str]] = {
     "gdp_pc":           frozenset({"NOR", "CHE", "USA", "SGP", "IRL", "LUX"}),  # IRL/LUX not in panel; stays as ref
     "household_cons":   frozenset({"USA", "CHE", "NOR", "AUS"}),
-    "health_pc":        frozenset({"USA", "CHE", "NOR", "DEU"}),
+    # health_pc dropped (was direction=up which incorrectly rewarded high spend)
     "life_expectancy":  frozenset({"JPN", "CHE", "ESP", "ITA", "NOR", "ISL", "AUS", "KOR"}),
     "infant_mort":      frozenset({"FIN", "ISL", "JPN", "NOR", "SWE", "SVN", "EST"}),
     "maternal_mort":    frozenset({"NOR", "POL", "ITA", "SWE", "ISR", "ESP", "DNK"}),
@@ -490,5 +529,7 @@ DIRECTION_PANELS: dict[str, frozenset[str]] = {
     "road_deaths":      frozenset({"NOR", "SWE", "CHE", "GBR", "DNK", "DEU", "NLD", "ISL"}),
     "top_10_income":    frozenset({"SVN", "FIN", "DNK", "NLD", "NOR", "BEL", "SWE", "CZE"}),
     "civil_liberties":  frozenset({"NOR", "DNK", "SWE", "NZL", "FIN", "CHE", "NLD", "DEU"}),
+    "political_stability": frozenset({"NOR", "ISL", "FIN", "SWE", "NZL", "CHE", "SGP", "DNK"}),
+    "safe_walking":     frozenset({"SGP", "NOR", "CHE", "FIN", "ISL", "NLD", "DNK", "SWE"}),
     "protected_areas":  frozenset({"SVN", "DEU", "POL", "GRC", "ESP", "FRA", "GBR", "ITA"}),
 }
