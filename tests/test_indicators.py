@@ -12,7 +12,7 @@ from pipeline.indicators import (
 
 
 def test_indicator_count() -> None:
-    assert len(INDICATORS) == 32
+    assert len(INDICATORS) == 31
 
 
 def test_domain_count() -> None:

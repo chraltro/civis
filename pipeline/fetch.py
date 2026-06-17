@@ -134,15 +134,28 @@ def _get_with_retry(
 # --------------------------------------------------------------------------
 # World Bank WDI
 # --------------------------------------------------------------------------
-def fetch_wb_indicator(client: httpx.Client, code: str) -> pd.DataFrame:
+def fetch_wb_indicator(
+    client: httpx.Client, code: str, *, source: int | None = None
+) -> pd.DataFrame:
     """Pull a WB indicator for all 29 countries, all years, into a long DF.
 
     Returns columns: iso3, year, value.
+
+    Pass `source` to query a specific WB catalog. The default catalog
+    excludes a few datasets — notably WGI (Worldwide Governance Indicators,
+    source=23). Without the right source param the API returns a
+    "no-data" envelope that doesn't match the standard [meta, rows] shape.
     """
     countries = ";".join(ISO3_LIST)
     url = f"{WB_BASE}/country/{countries}/indicator/{code}"
-    params = {"format": "json", "per_page": 20000, "date": "1990:2025"}
-    log.info("WB fetch %s", code)
+    params: dict[str, str | int] = {
+        "format": "json",
+        "per_page": 20000,
+        "date": "1990:2025",
+    }
+    if source is not None:
+        params["source"] = source
+    log.info("WB fetch %s%s", code, f" (source={source})" if source else "")
     r = _get_with_retry(client, url, params=params)
     body = r.json()
     if not isinstance(body, list) or len(body) < 2:
@@ -240,7 +253,7 @@ def fetch_source(
 ) -> FetchResult:
     """Fetch one (indicator, source) pair, write CSV, return metadata."""
     if source.kind == "wb":
-        df = fetch_wb_indicator(client, source.ref)
+        df = fetch_wb_indicator(client, source.ref, source=source.wb_source)
         column_used = None
     elif source.kind == "owid":
         raw = fetch_owid_csv(client, source.ref)

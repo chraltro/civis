@@ -42,7 +42,6 @@ SYNTH_PROFILES: dict[str, tuple[float, float, float, set[str], set[str]]] = {
     "household_cons":  (30000, 50000, 18000, {"USA", "CHE", "NOR", "AUS"}, {"EST", "LTU", "POL", "PRT"}),
     # health_pc dropped (incorrect direction)
     "political_stability": (0.7, 1.4, -0.5, {"NOR", "ISL", "FIN", "SWE", "NZL"}, {"ISR", "HKG", "USA"}),
-    "safe_walking":    (75, 90, 50, {"SGP", "NOR", "CHE", "FIN", "ISL"}, {"USA", "ITA", "FRA"}),
     # Health
     "life_expectancy": (81.0, 84.5, 76.0, {"JPN", "CHE", "ESP", "ITA", "ISL"}, {"USA", "POL", "LTU", "EST"}),
     "infant_mort":     (3.0, 1.6, 5.5, {"FIN", "JPN", "ISL", "NOR", "SVN"}, {"USA", "POL", "ISR"}),
