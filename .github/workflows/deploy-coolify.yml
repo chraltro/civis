@@ -1,0 +1,49 @@
+name: Deploy to Coolify
+
+# Coolify's "Auto Deploy" toggle is UI-only and not enabled, so pushes don't
+# reach the server by themselves. This workflow calls the Coolify deploy API,
+# the same thing `bash coolify.sh deploy civis` does from the ops repo.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: coolify-deploy
+  cancel-in-progress: false
+
+env:
+  COOLIFY_URL: https://coolify.demant.app
+  APP_UUID: f9xph8nf59ux2kcvucyprrc6
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deployment
+        id: trigger
+        run: |
+          resp=$(curl -sS --fail -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"             "$COOLIFY_URL/api/v1/deploy?uuid=$APP_UUID")
+          echo "$resp"
+          dep=$(echo "$resp" | jq -r '.deployments[0].deployment_uuid')
+          if [ -z "$dep" ] || [ "$dep" = "null" ]; then
+            echo "No deployment_uuid in response" >&2
+            exit 1
+          fi
+          echo "deployment_uuid=$dep" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for deployment to finish
+        run: |
+          dep='${{ steps.trigger.outputs.deployment_uuid }}'
+          for i in $(seq 1 120); do
+            status=$(curl -sS -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"               "$COOLIFY_URL/api/v1/deployments/$dep" | jq -r '.status')
+            echo "[$i] status: $status"
+            case "$status" in
+              finished) exit 0 ;;
+              failed|cancelled|cancelled-by-user) exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for deployment" >&2
+          exit 1
