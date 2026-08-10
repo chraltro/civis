@@ -17,7 +17,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from . import __version__
-from .fetch import fetch_all
+from .fetch import DEFAULT_SLEEP_S, fetch_all
 from .process import (
     ProcessConfig,
     build_indicator_panel,
@@ -59,7 +59,7 @@ def cli(ctx: click.Context, verbose: bool) -> None:
 
 @cli.command("fetch")
 @click.option("--raw-dir", type=click.Path(path_type=Path), default=DEFAULT_RAW)
-@click.option("--sleep", type=float, default=0.2)
+@click.option("--sleep", type=float, default=DEFAULT_SLEEP_S)
 def cmd_fetch(raw_dir: Path, sleep: float) -> None:
     """Fetch every indicator source to data/raw/."""
     console.rule("[bold]civis fetch")

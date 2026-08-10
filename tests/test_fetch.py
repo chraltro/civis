@@ -12,9 +12,11 @@ import pandas as pd
 import pytest
 
 from pipeline.fetch import (
+    WB_RETRY_STATUSES,
     FetchFailure,
     _get_with_retry,
     fetch_all,
+    fetch_wb_indicator,
 )
 
 
@@ -81,6 +83,88 @@ def test_retry_does_not_retry_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
     with _client_from_handler(handler) as client, pytest.raises(httpx.HTTPStatusError):
         _get_with_retry(client, "https://example.test/x")
     assert calls["n"] == 1
+
+
+def test_400_is_not_retried_by_default() -> None:
+    """A plain 400 stays permanent for callers that don't opt in."""
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(400)
+
+    with _client_from_handler(handler) as client, pytest.raises(httpx.HTTPStatusError):
+        _get_with_retry(client, "https://example.test/x", backoff=(0.0, 0.0))
+    assert calls["n"] == 1
+
+
+def test_wb_400_is_retried() -> None:
+    """The World Bank answers 400 when throttling, and the same URL then
+    succeeds. Regression: the weekly refresh failed for months because a
+    varying subset of WB indicators hit this and was treated as permanent."""
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(400) if calls["n"] < 3 else httpx.Response(200, json={"ok": True})
+
+    with _client_from_handler(handler) as client:
+        r = _get_with_retry(
+            client, "https://example.test/x",
+            backoff=(0.0, 0.0, 0.0), retry_statuses=WB_RETRY_STATUSES,
+        )
+    assert r.status_code == 200
+    assert calls["n"] == 3
+
+
+def test_wb_fetch_uses_the_retry_statuses(monkeypatch: pytest.MonkeyPatch) -> None:
+    """fetch_wb_indicator must pass the WB retry policy through, not the default."""
+    monkeypatch.setattr("pipeline.fetch.WB_RETRY_BACKOFF_S", (0.0, 0.0, 0.0))
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] < 3:
+            return httpx.Response(400)
+        return httpx.Response(200, json=[
+            {"page": 1, "pages": 1},
+            [{"countryiso3code": "NOR", "date": "2020", "value": 1.5}],
+        ])
+
+    with _client_from_handler(handler) as client:
+        df = fetch_wb_indicator(client, "SOME.CODE")
+    assert calls["n"] == 3
+    assert df.to_dict("records") == [{"iso3": "NOR", "year": 2020, "value": 1.5}]
+
+
+def test_wb_source_database_is_sent_as_a_param() -> None:
+    """WGI indicators live outside the default WDI database and need source=3."""
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["source"] = request.url.params.get("source")
+        return httpx.Response(200, json=[
+            {"page": 1, "pages": 1},
+            [{"countryiso3code": "NOR", "date": "2020", "value": 0.9}],
+        ])
+
+    with _client_from_handler(handler) as client:
+        fetch_wb_indicator(client, "GOV_WGI_PV.EST", db=3)
+    assert seen["source"] == "3"
+
+
+def test_wb_retired_indicator_message_is_surfaced() -> None:
+    """WB reports an archived code as HTTP 200 with a message body, not a 4xx."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=[
+            {"message": [{"id": "175", "key": "Invalid format",
+                          "value": "The indicator was not found. It may have been "
+                                   "deleted or archived."}]},
+        ])
+
+    with _client_from_handler(handler) as client, \
+            pytest.raises(RuntimeError, match="deleted or archived"):
+        fetch_wb_indicator(client, "PV.EST")
 
 
 # --------------------------------------------------------------------------
@@ -197,6 +281,30 @@ def test_fetch_all_first_source_succeeds_does_not_try_alternates(
     pf_calls = [(k, r) for k, r in calls if k == "press_freedom"]
     assert len(pf_calls) == 1, f"expected only primary, got {pf_calls}"
     assert pf_calls[0][1] == pf.sources[0].ref
+
+
+def test_fetch_all_paces_successful_requests(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Regression: the inter-request sleep sat after the success `break`, so a
+    fully healthy run hammered the World Bank API with no gap and got throttled
+    into 400s. Every fetched source must be paced, not just the failing ones."""
+    from pipeline import fetch as fetch_module
+
+    sleeps: list[float] = []
+    monkeypatch.setattr(fetch_module.time, "sleep", lambda s: sleeps.append(s))
+    monkeypatch.setattr(
+        fetch_module, "fetch_source",
+        lambda client, indicator, source, raw_dir: _fake_source_success(
+            raw_dir, indicator, source),
+    )
+
+    fetch_all(tmp_path, sleep_s=0.25)
+
+    from pipeline.indicators import INDICATORS
+    assert len(sleeps) == len(INDICATORS), (
+        f"expected one pause per fetched indicator, got {len(sleeps)}")
+    assert set(sleeps) == {0.25}
 
 
 def test_fetch_failure_dataclass() -> None:

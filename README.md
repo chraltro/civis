@@ -3,7 +3,7 @@
 **Where do people actually live the best lives?**
 
 Civis is a hierarchical index of wellbeing across 29 advanced economies, 1990 to
-the present. 24 indicators across 9 equally-weighted domains: material conditions,
+the present. 31 indicators across 9 equally-weighted domains: material conditions,
 health, knowledge, safety, equality, freedom, work, environment, subjective
 wellbeing. Indicator z-scores are aggregated to domain z-scores, then to a
 country composite. Domain weights are user-adjustable on the dashboard, so the
@@ -51,7 +51,7 @@ footprint, and incarceration-driven safety score offset its material lead.
 
 ## What this repository contains
 
-- **`pipeline/`** — the Python data pipeline. `civis fetch` pulls the 24
+- **`pipeline/`** — the Python data pipeline. `civis fetch` pulls the 31
   indicators from World Bank WDI and Our World in Data; `civis process`
   produces a single canonical `data/processed/civis.json`; `civis validate`
   runs five families of correctness checks against the data.
@@ -80,7 +80,7 @@ uv venv --python 3.11
 uv pip install -e ".[dev]"
 source .venv/bin/activate
 
-civis fetch              # pulls all 24 indicators to data/raw/
+civis fetch              # pulls all 31 indicators to data/raw/
 civis process            # writes data/processed/civis.json + civis.csv
 civis validate           # runs the validation suite
 pytest                   # 26 unit tests
@@ -111,19 +111,19 @@ The country list is intentional: it's a comparison frame for "developed
 countries", not a global ranking. Adding emerging economies would change what
 the index *measures*, not just its size.
 
-## The 9 domains and 24 indicators
+## The 9 domains and 31 indicators
 
 | Domain | Indicators |
 |---|---|
-| **Material** | GDP per capita (PPP), household consumption per capita, health spending per capita |
-| **Health** | Life expectancy, infant mortality, maternal mortality |
-| **Knowledge** | Mean years of schooling, tertiary attainment 25+, internet users |
-| **Safety** | Homicide rate, suicide rate |
-| **Equality** | Income Gini (post-tax), Gender Development Index |
-| **Freedom** | Liberal democracy (V-Dem), press freedom (RSF), anti-corruption (CPI) |
-| **Work** | Annual working hours, unemployment, employment-to-population |
-| **Environment** | PM2.5 air pollution, CO₂ per capita, renewable energy share |
-| **Wellbeing** | Life evaluation (Cantril ladder), adolescent fertility |
+| **Material** | GDP per capita (PPP), Household consumption per capita, Fixed broadband subs (per 100) |
+| **Health** | Life expectancy at birth, Infant mortality (per 1,000), Maternal mortality (per 100k), Under-5 mortality (per 1k) |
+| **Knowledge** | Mean years of schooling, Tertiary attainment, 25+, Internet users, R&D spending |
+| **Safety** | Homicide rate, Suicide rate, Road traffic deaths, Political stability (WGI) |
+| **Equality** | Income Gini (post-tax), Gender Development Index, Top 10% income share |
+| **Freedom** | Liberal democracy (V-Dem), Press freedom (RSF, lower=freer, pre-2022 methodology), Anti-corruption (CPI), Human rights (V-Dem) |
+| **Work** | Annual working hours per worker, Unemployment rate, Employment-to-population ratio (15+) |
+| **Environment** | PM2.5 air pollution, CO₂ emissions per capita, Renewable energy share, Terrestrial protected areas |
+| **Wellbeing** | Life evaluation (Cantril ladder), Adolescent fertility rate (per 1k) |
 
 ## Limitations and open questions
 

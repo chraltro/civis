@@ -1,4 +1,4 @@
-"""Manifest-level checks: 24 indicators in 9 domains, no duplicates, etc."""
+"""Manifest-level checks: 31 indicators in 9 domains, no duplicates, etc."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pipeline.indicators import (
 
 
 def test_indicator_count() -> None:
-    assert len(INDICATORS) == 32
+    assert len(INDICATORS) == 31
 
 
 def test_domain_count() -> None:

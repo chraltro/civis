@@ -43,7 +43,7 @@ winsorization to make the mean defensible.
 
 ### Indicator selection
 
-24 indicators across 9 domains. Each domain has 2–3 indicators. Each
+31 indicators across 9 domains. Each domain has 2 to 4 indicators. Each
 indicator is selected to (a) measure something distinct from its sibling
 indicators within the domain and (b) have continuous coverage on at least 27
 of 29 panel countries from 1990–present, with a primary source under a

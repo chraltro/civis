@@ -48,6 +48,18 @@ USER_AGENT = "civis-index/0.1 (+https://github.com/chraltro/civis)"
 # again on transient failures.
 DEFAULT_TIMEOUT = httpx.Timeout(connect=15.0, read=60.0, write=15.0, pool=15.0)
 RETRY_BACKOFF_S: tuple[float, ...] = (2.0, 5.0, 12.0)
+
+# The World Bank API sheds load by answering 400 Bad Request rather than 429 or
+# 503. The same URL then returns 200 a few seconds later, so a 400 from WB says
+# nothing about whether the request was well-formed. Retry it. A genuinely bad
+# indicator code still fails, just after the backoff ladder instead of at once.
+WB_RETRY_STATUSES = frozenset({400, 429})
+# WB throttles harder than OWID, so give it a longer ladder.
+WB_RETRY_BACKOFF_S: tuple[float, ...] = (3.0, 8.0, 20.0, 45.0)
+
+# Gap between source requests. This is a weekly cron over ~30 indicators, so
+# pacing costs under a minute and keeps us well clear of the throttle.
+DEFAULT_SLEEP_S = 1.5
 TRANSIENT_EXC = (
     httpx.ReadTimeout,
     httpx.ConnectTimeout,
@@ -86,6 +98,7 @@ def _get_with_retry(
     params: dict | None = None,
     *,
     backoff: tuple[float, ...] = RETRY_BACKOFF_S,
+    retry_statuses: frozenset[int] = frozenset({429}),
 ) -> httpx.Response:
     """GET with exponential backoff on transient network/server failures.
 
@@ -93,16 +106,20 @@ def _get_with_retry(
       - connection / read / pool timeouts
       - protocol errors (server hung up mid-response)
       - HTTP 5xx
-      - HTTP 429 (rate limit)
+      - any status in `retry_statuses` (429 by default)
     Raises immediately on:
-      - HTTP 4xx other than 429 (likely a wrong URL; retrying won't help)
+      - any other 4xx (a wrong URL or a dead slug; retrying won't help)
+
+    `retry_statuses` exists because the World Bank API answers 400 Bad Request
+    when it is throttling, for requests that succeed on a later attempt. See
+    WB_RETRY_STATUSES.
     """
     last_exc: Exception | None = None
     attempts = len(backoff) + 1
     for attempt in range(1, attempts + 1):
         try:
             r = client.get(url, params=params)
-            if r.status_code in (429,) or 500 <= r.status_code < 600:
+            if r.status_code in retry_statuses or 500 <= r.status_code < 600:
                 # treat as transient
                 msg = f"{r.status_code} {r.reason_phrase}"
                 if attempt < attempts:
@@ -124,7 +141,7 @@ def _get_with_retry(
                 continue
             raise
         except httpx.HTTPStatusError as e:
-            # 4xx other than 429 — don't retry.
+            # Non-retryable 4xx.
             raise e
     if last_exc is not None:
         raise last_exc
@@ -134,19 +151,40 @@ def _get_with_retry(
 # --------------------------------------------------------------------------
 # World Bank WDI
 # --------------------------------------------------------------------------
-def fetch_wb_indicator(client: httpx.Client, code: str) -> pd.DataFrame:
+def fetch_wb_indicator(
+    client: httpx.Client, code: str, db: int | None = None
+) -> pd.DataFrame:
     """Pull a WB indicator for all 29 countries, all years, into a long DF.
+
+    `db` selects a non-default World Bank source database (e.g. 3 for the
+    Worldwide Governance Indicators). Omit it for plain WDI indicators.
 
     Returns columns: iso3, year, value.
     """
     countries = ";".join(ISO3_LIST)
     url = f"{WB_BASE}/country/{countries}/indicator/{code}"
-    params = {"format": "json", "per_page": 20000, "date": "1990:2025"}
-    log.info("WB fetch %s", code)
-    r = _get_with_retry(client, url, params=params)
+    params: dict = {"format": "json", "per_page": 20000, "date": "1990:2025"}
+    if db is not None:
+        params["source"] = db
+    log.info("WB fetch %s%s", code, f" (source={db})" if db is not None else "")
+    r = _get_with_retry(
+        client, url, params=params,
+        backoff=WB_RETRY_BACKOFF_S, retry_statuses=WB_RETRY_STATUSES,
+    )
     body = r.json()
     if not isinstance(body, list) or len(body) < 2:
-        raise RuntimeError(f"unexpected WB response for {code}: {body!r}")
+        # WB signals a retired/renamed indicator with HTTP 200 and a one-element
+        # body carrying a message, so surface that text instead of a bare repr.
+        msg = ""
+        if isinstance(body, list) and body and isinstance(body[0], dict):
+            for m in body[0].get("message") or []:
+                msg = f"{m.get('key')}: {m.get('value')}"
+                break
+        raise RuntimeError(
+            f"WB returned no data series for {code}"
+            f"{f' (source={db})' if db is not None else ''}"
+            f"{f' - {msg}' if msg else f': {body!r}'}"
+        )
     rows = body[1] or []
     out = []
     for row in rows:
@@ -240,7 +278,7 @@ def fetch_source(
 ) -> FetchResult:
     """Fetch one (indicator, source) pair, write CSV, return metadata."""
     if source.kind == "wb":
-        df = fetch_wb_indicator(client, source.ref)
+        df = fetch_wb_indicator(client, source.ref, db=source.db)
         column_used = None
     elif source.kind == "owid":
         raw = fetch_owid_csv(client, source.ref)
@@ -269,7 +307,7 @@ def fetch_source(
 # --------------------------------------------------------------------------
 # Top-level runner
 # --------------------------------------------------------------------------
-def fetch_all(raw_dir: Path, *, sleep_s: float = 0.2) -> list[FetchResult]:
+def fetch_all(raw_dir: Path, *, sleep_s: float = DEFAULT_SLEEP_S) -> list[FetchResult]:
     """Fetch every source for every indicator. Writes a manifest at the end.
 
     Per-indicator success: an indicator counts as fetched if AT LEAST ONE of
@@ -301,7 +339,6 @@ def fetch_all(raw_dir: Path, *, sleep_s: float = 0.2) -> list[FetchResult]:
                         "  %s [%s:%s] -> %d rows, %d countries",
                         ind.key, src.kind, src.ref, res.n_rows, res.n_countries,
                     )
-                    break  # first success wins; stop trying alternates
                 except Exception as e:  # noqa: BLE001
                     ind_attempts.append((src, e))
                     log.warning(
@@ -309,7 +346,12 @@ def fetch_all(raw_dir: Path, *, sleep_s: float = 0.2) -> list[FetchResult]:
                         ind.key, src.kind, src.ref, type(e).__name__,
                         "trying next source" if src is not ind.sources[-1] else "no more sources",
                     )
+                # Pace every request, including successful ones. This used to sit
+                # after the success `break`, so a healthy run hit the World Bank
+                # API back to back and got throttled into 400s.
                 time.sleep(sleep_s)
+                if ind_succeeded:
+                    break  # first success wins; stop trying alternates
 
             if not ind_succeeded:
                 # Promote every per-source failure to a hard failure for this indicator.

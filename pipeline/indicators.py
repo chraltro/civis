@@ -1,6 +1,6 @@
 """Indicator definitions for the Civis Index.
 
-24 indicators across 9 equally-weighted domains. Each indicator has:
+31 indicators across 9 equally-weighted domains. Each indicator has:
   - key:        unique short identifier
   - label:      human-readable label
   - domain:     one of the 9 domains
@@ -43,6 +43,9 @@ class Source:
     # a tuple of candidate column names to try in order — the fetcher discovers
     # which is present.
     column: str | tuple[str, ...] | None = None
+    # WB source database id, for indicators that do not live in the default
+    # WDI database (e.g. 3 = Worldwide Governance Indicators). None = WDI.
+    db: int | None = None
     # Multiplier to apply on raw values to align with the canonical scale.
     # E.g. LIS Gini is 0..1; WB Gini is 0..100; if you fetch LIS but want WB
     # scale you'd set scale=100.
@@ -210,7 +213,10 @@ INDICATORS: tuple[Indicator, ...] = (
         label="Political stability (WGI)",
         domain="Safety",
         direction="up",
-        sources=(Source("wb", "PV.EST"),),
+        # WGI moved out of the default WDI database and the codes gained a
+        # GOV_WGI_ prefix; the bare PV.EST code now answers "deleted or
+        # archived". Same -2.5..+2.5 estimate, so the scale is unchanged.
+        sources=(Source("wb", "GOV_WGI_PV.EST", db=3),),
         notes=(
             "World Bank's Worldwide Governance Indicators: Political Stability "
             "and Absence of Violence/Terrorism, estimate (-2.5 worst, +2.5 best). "
@@ -221,33 +227,13 @@ INDICATORS: tuple[Indicator, ...] = (
         ),
         precision=2,
     ),
-    Indicator(
-        key="safe_walking",
-        label="Feel safe walking alone at night",
-        domain="Safety",
-        direction="up",
-        sources=(
-            # Gallup World Poll question, hosted by OWID. Multiple slug
-            # candidates because OWID has reorganized this dataset before.
-            Source(
-                "owid",
-                "share-of-people-who-feel-safe-walking-alone-at-night",
-                column=("feel_safe_walking_alone", "safety_walking_alone",
-                        "share_safe_walking_alone"),
-            ),
-            Source(
-                "owid",
-                "feel-safe-walking-alone-at-night",
-                column=("feel_safe_walking_alone", "share_safe_walking_alone"),
-            ),
-            Source(
-                "owid",
-                "perceived-safety-walking-alone-at-night",
-                column=("feel_safe_walking_alone", "perceived_safety"),
-            ),
-        ),
-        precision=0, suffix="%",
-    ),
+    # Dropped 2026-08: "Feel safe walking alone at night" (Gallup World Poll,
+    # hosted by OWID). OWID deleted the dataset and all three candidate slugs
+    # now 404. The only live replacement is a different survey (UN SDG 16.1.4,
+    # OWID slug safety-walking-alone) covering 17 of our 29 countries and
+    # missing NOR, DNK, NLD and SGP, so adopting it would count an extra
+    # Safety strength for the countries that have it and silently not for the
+    # rest. Safety still carries four full-coverage indicators.
 
     # ------------------ Equality ------------------
     Indicator(
@@ -530,6 +516,5 @@ DIRECTION_PANELS: dict[str, frozenset[str]] = {
     "top_10_income":    frozenset({"SVN", "FIN", "DNK", "NLD", "NOR", "BEL", "SWE", "CZE"}),
     "civil_liberties":  frozenset({"NOR", "DNK", "SWE", "NZL", "FIN", "CHE", "NLD", "DEU"}),
     "political_stability": frozenset({"NOR", "ISL", "FIN", "SWE", "NZL", "CHE", "SGP", "DNK"}),
-    "safe_walking":     frozenset({"SGP", "NOR", "CHE", "FIN", "ISL", "NLD", "DNK", "SWE"}),
     "protected_areas":  frozenset({"SVN", "DEU", "POL", "GRC", "ESP", "FRA", "GBR", "ITA"}),
 }
